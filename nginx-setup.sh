@@ -21,19 +21,42 @@ fi
 echo "🌐 Configurando o Nginx para $DOMINIO..."
 
 # ── 1. Conferir o DNS ─────────────────────────────────────────
-IP_VPS=$(curl -s ifconfig.me || echo '')
-IP_DNS=$(getent hosts "$DOMINIO" | awk '{print $1}' | head -1 || echo '')
+# IPv4 e IPv6 são consultados separadamente: sem o -4/-6 o curl escolhe
+# um dos dois e a comparação acaba sendo IPv6 da VPS contra IPv4 do DNS.
+IP4_VPS=$(curl -4 -s --max-time 10 ifconfig.me 2>/dev/null || echo '')
+IP6_VPS=$(curl -6 -s --max-time 10 ifconfig.me 2>/dev/null || echo '')
 
-if [ -z "$IP_DNS" ]; then
-  echo "⚠️  $DOMINIO ainda não resolve. Crie o registro A apontando para $IP_VPS"
-  echo "    e rode de novo depois que o DNS propagar."
+IP4_DNS=$(getent ahostsv4 "$DOMINIO" 2>/dev/null | awk '{print $1}' | head -1 || echo '')
+IP6_DNS=$(getent ahostsv6 "$DOMINIO" 2>/dev/null | awk '{print $1}' | head -1 || echo '')
+
+echo ""
+echo "   VPS   IPv4: ${IP4_VPS:-—}    IPv6: ${IP6_VPS:-—}"
+echo "   $DOMINIO"
+echo "         A:    ${IP4_DNS:-—}    AAAA: ${IP6_DNS:-—}"
+echo ""
+
+if [ -z "$IP4_DNS" ] && [ -z "$IP6_DNS" ]; then
+  echo "❌ $DOMINIO não resolve."
+  echo "   Crie um registro A apontando para ${IP4_VPS:-o IPv4 desta VPS}"
+  echo "   e rode de novo depois que o DNS propagar."
   exit 1
 fi
 
-if [ "$IP_DNS" != "$IP_VPS" ]; then
-  echo "⚠️  $DOMINIO aponta para $IP_DNS, mas esta VPS é $IP_VPS."
-  read -p "    Continuar mesmo assim? [s/N] " RESP
+CONFERE=0
+[ -n "$IP4_DNS" ] && [ "$IP4_DNS" = "$IP4_VPS" ] && CONFERE=1
+[ -n "$IP6_DNS" ] && [ "$IP6_DNS" = "$IP6_VPS" ] && CONFERE=1
+
+if [ "$CONFERE" != "1" ]; then
+  echo "⚠️  O domínio NÃO aponta para esta VPS."
+  echo ""
+  echo "   O Certbot valida o domínio acessando-o pela internet: se o DNS"
+  echo "   levar a outro servidor, a emissão do certificado vai falhar."
+  echo ""
+  echo "   Corrija no painel de DNS: registro A de $DOMINIO → ${IP4_VPS:-IPv4 da VPS}"
+  echo ""
+  read -p "   Continuar mesmo assim (só configura o Nginx, sem certificado)? [s/N] " RESP
   [ "$RESP" = "s" ] || exit 1
+  PULAR_CERTBOT=1
 fi
 
 # ── 2. Instalar o necessário ──────────────────────────────────
@@ -85,6 +108,15 @@ nginx -t
 systemctl reload nginx
 
 # ── 4. Certificado ────────────────────────────────────────────
+if [ "${PULAR_CERTBOT:-0}" = "1" ]; then
+  echo ""
+  echo "⏭️  Certificado não emitido: o DNS ainda não aponta para esta VPS."
+  echo "    Ajuste o registro A e rode este script de novo."
+  echo ""
+  echo "    Por enquanto: http://$DOMINIO/  (sem instalação do PWA)"
+  exit 0
+fi
+
 echo "🔐 Emitindo o certificado..."
 certbot --nginx -d "$DOMINIO" --redirect --agree-tos --non-interactive \
         -m "${EMAIL_CERTBOT:-jpetcomercio@gmail.com}" || {
