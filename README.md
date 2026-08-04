@@ -193,11 +193,24 @@ as duas. Inclua ambas na sua rotina de backup.
 
 ## Naturalidade e a lista de municípios
 
-O autocompletar usa a lista de municípios do IBGE, buscada **pelo servidor** (o
-navegador não fala direto com o IBGE por CORS) e guardada em
-`dados/municipios.json`. Se o IBGE estiver inacessível, a rota devolve lista
-vazia e o campo continua aceitando digitação livre, com a UF liberada. Para
-tentar de novo depois: `POST /api/municipios/atualizar`.
+A lista dos **5.590 municípios com UF vem embutida** em `src/municipios.json`
+(~170 KB). Não depende de rede: funciona na primeira execução, offline e em
+servidor sem acesso à API do IBGE.
+
+Ao digitar a cidade, o campo sugere os municípios e preenche a UF sozinha.
+Quando o nome existe em mais de um estado (*Bom Jesus* aparece em 4), a UF fica
+em branco de propósito, para não chutar. Nacionalidade "Estrangeira" libera
+cidade e UF para digitação livre.
+
+Origem dos dados: IBGE, via pacote [brazilian-cities](https://github.com/rhases/brazilian-cities) (MIT).
+Para sincronizar com o IBGE quando houver acesso à internet:
+
+```
+POST /api/municipios/atualizar
+```
+
+Isso grava `dados/municipios.json`, que passa a ter prioridade sobre a lista
+embutida. Se o IBGE estiver fora do ar, nada quebra — a embutida continua valendo.
 
 ## Próximos passos sugeridos
 

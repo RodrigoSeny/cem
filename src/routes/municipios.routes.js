@@ -1,10 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
 // CEM — Municípios brasileiros (naturalidade)
 //
-// O navegador não fala direto com o IBGE (CORS/rede da escola),
-// então o servidor busca uma vez, grava em dados/municipios.json
-// e passa a servir do disco. Se o IBGE estiver inacessível, a
-// rota devolve lista vazia e o campo continua aceitando digitação.
+// A lista vem embutida no projeto (src/municipios.json, 5.590
+// municípios com UF). Não depende de rede: nem o IBGE nem a VPS
+// precisam estar acessíveis para o campo funcionar.
+//
+// Origem dos dados: IBGE, via pacote brazilian-cities (MIT).
+// Para atualizar quando houver acesso ao IBGE:
+//   POST /api/municipios/atualizar
+// que grava dados/municipios.json e passa a ter prioridade.
 // ═══════════════════════════════════════════════════════════════
 const path = require('path');
 const fs = require('fs');
@@ -13,11 +17,12 @@ const { rota } = require('../util');
 
 const router = express.Router();
 
-const ARQUIVO = path.join(__dirname, '..', '..', 'dados', 'municipios.json');
+const EMBUTIDO = path.join(__dirname, '..', 'municipios.json');
+const ATUALIZADO = path.join(__dirname, '..', '..', 'dados', 'municipios.json');
 const URL_IBGE = 'https://servicosdados.ibge.gov.br/api/v1/localidades/municipios';
 
 let memoria = null;
-let buscando = null;
+let origem = null;
 
 /** Extrai a sigla da UF nas várias formas que o IBGE devolve. */
 function ufDoMunicipio(m) {
@@ -27,17 +32,32 @@ function ufDoMunicipio(m) {
       || '';
 }
 
-function lerDoDisco() {
+function lerArquivo(caminho) {
   try {
-    if (!fs.existsSync(ARQUIVO)) return null;
-    const dados = JSON.parse(fs.readFileSync(ARQUIVO, 'utf8'));
+    if (!fs.existsSync(caminho)) return null;
+    const dados = JSON.parse(fs.readFileSync(caminho, 'utf8'));
     return Array.isArray(dados) && dados.length ? dados : null;
   } catch { return null; }
 }
 
+/** Lista de municípios: memória → arquivo atualizado → embutido. */
+function obter() {
+  if (memoria) return memoria;
+
+  const atualizado = lerArquivo(ATUALIZADO);
+  if (atualizado) { memoria = atualizado; origem = 'ibge'; return memoria; }
+
+  const embutido = lerArquivo(EMBUTIDO);
+  if (embutido) { memoria = embutido; origem = 'embutido'; return memoria; }
+
+  memoria = [];
+  origem = 'indisponivel';
+  return memoria;
+}
+
 async function baixarDoIbge() {
   const controle = new AbortController();
-  const limite = setTimeout(() => controle.abort(), 15000);
+  const limite = setTimeout(() => controle.abort(), 20000);
   try {
     const r = await fetch(URL_IBGE, { signal: controle.signal });
     if (!r.ok) throw new Error('IBGE respondeu ' + r.status);
@@ -48,48 +68,36 @@ async function baixarDoIbge() {
 
     if (dados.length < 1000) throw new Error('Lista do IBGE veio incompleta.');
 
-    try { fs.writeFileSync(ARQUIVO, JSON.stringify(dados), 'utf8'); } catch {}
+    fs.mkdirSync(path.dirname(ATUALIZADO), { recursive: true });
+    fs.writeFileSync(ATUALIZADO, JSON.stringify(dados), 'utf8');
     return dados;
   } finally {
     clearTimeout(limite);
   }
 }
 
-/** Lista de municípios: memória → disco → IBGE. */
-async function obter() {
-  if (memoria) return memoria;
-
-  const doDisco = lerDoDisco();
-  if (doDisco) { memoria = doDisco; return memoria; }
-
-  // Uma única busca simultânea, mesmo com vários pedidos ao mesmo tempo
-  if (!buscando) {
-    buscando = baixarDoIbge()
-      .then(d => { memoria = d; return d; })
-      .catch(e => { console.warn('[municipios] IBGE indisponível:', e.message); return []; })
-      .finally(() => { buscando = null; });
-  }
-  return buscando;
-}
-
 // ── GET /api/municipios ───────────────────────────────────────
-router.get('/', rota(async (req, res) => {
-  const lista = await obter();
+router.get('/', rota((req, res) => {
+  const lista = obter();
   res.json({
     total: lista.length,
     disponivel: lista.length > 0,
+    origem,
     municipios: lista,
   });
 }));
 
-// ── POST /api/municipios/atualizar — força nova busca no IBGE ──
+// ── POST /api/municipios/atualizar — busca a versão do IBGE ───
 router.post('/atualizar', rota(async (req, res) => {
   try {
     const dados = await baixarDoIbge();
     memoria = dados;
+    origem = 'ibge';
     res.json({ ok: true, total: dados.length });
   } catch (e) {
-    res.status(503).json({ error: 'Não foi possível acessar o IBGE agora. ' + e.message });
+    res.status(503).json({
+      error: 'Não foi possível acessar o IBGE agora. A lista embutida continua em uso. ' + e.message,
+    });
   }
 }));
 
