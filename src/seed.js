@@ -26,7 +26,8 @@ const PERFIS = [
   {
     id: 'PERFIL-SECRETARIA', nome: 'Secretaria', sistema: 1,
     descricao: 'Matrículas, cadastros, mensalidades e comunicação.',
-    paginas: ['dashboard', 'alunos', 'responsaveis', 'turmas', 'ocorrencias', 'mensagens', 'financeiro', 'relatorios'],
+    paginas: ['dashboard', 'alunos', 'responsaveis', 'turmas', 'ocorrencias', 'mensagens',
+              'fin-painel', 'fin-cadastros', 'fin-recebimentos', 'relatorios'],
   },
   {
     id: 'PERFIL-COORDENACAO', nome: 'Coordenação', sistema: 1,
@@ -67,6 +68,25 @@ function seed() {
 
   for (const p of PERFIS) {
     criarPerfil.run({ ...p, paginas: JSON.stringify(p.paginas) });
+  }
+
+  // ── Migração: 'financeiro' virou quatro módulos ─────────────
+  // Quem já tinha acesso ao financeiro recebe os quatro, para não
+  // perder acesso no dia do deploy. A partir daí, quem aperta é a
+  // direção, em Perfis de Acesso.
+  const NOVOS_FIN = ['fin-painel', 'fin-cadastros', 'fin-recebimentos', 'fin-pagamentos'];
+  const comFinanceiroAntigo = db.prepare(
+    `SELECT id, paginas FROM perfis WHERE paginas LIKE '%"financeiro"%'`).all();
+
+  for (const p of comFinanceiroAntigo) {
+    let lista;
+    try { lista = JSON.parse(p.paginas || '[]'); } catch { continue; }
+
+    const nova = lista.filter(x => x !== 'financeiro');
+    for (const n of NOVOS_FIN) if (!nova.includes(n)) nova.push(n);
+
+    db.prepare('UPDATE perfis SET paginas = ? WHERE id = ?').run(JSON.stringify(nova), p.id);
+    console.log(`↗️  ${p.id}: 'financeiro' substituído pelos 4 módulos.`);
   }
 
   // ── Sincronização do catálogo de páginas ────────────────────

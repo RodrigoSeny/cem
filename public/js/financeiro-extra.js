@@ -28,24 +28,82 @@ Object.assign(Financeiro, {
   _previa: null,
   _planilha: null,
 
-  // ── Navegação entre as abas ────────────────────────────────
-  abrirAba(nome) {
-    document.querySelectorAll('#finAbas .aba').forEach(a =>
-      a.classList.toggle('active', a.dataset.finaba === nome));
-    ['resumo', 'parcelas', 'cobrancas', 'movimento', 'planilha', 'contratos', 'despesas', 'centros']
-      .forEach(n => document.getElementById('finaba-' + n)?.classList.toggle('active', n === nome));
+  // ── Abas de Cadastros ──────────────────────────────────────
+  abrirAbaCadastro(nome) {
+    document.querySelectorAll('#finAbasCadastro .aba').forEach(a =>
+      a.classList.toggle('active', a.dataset.cadaba === nome));
+    ['planos', 'contratos', 'cobrancas', 'centros'].forEach(n =>
+      document.getElementById('cadaba-' + n)?.classList.toggle('active', n === nome));
 
-    const acao = {
-      resumo: () => this.carregarResumo(),
-      parcelas: () => this.carregarParcelas(),
-      cobrancas: () => this.carregarCobrancas(),
-      contratos: () => this.carregarContratos(),
-      despesas: () => this.carregarDespesas(),
-      centros: () => this.carregarCentros(),
-      movimento: () => { document.getElementById('movCompetencia').value ||= mesAtual(); },
-      planilha: () => { document.getElementById('planCompetencia').value ||= mesAtual(); },
+    // O botão do cabeçalho muda conforme a aba
+    const acoes = {
+      planos:    { rotulo: '＋ Novo plano',           fn: 'Financeiro.abrirPlanos()' },
+      contratos: { rotulo: '📄 Novo contrato',        fn: 'Financeiro.abrirContrato()' },
+      cobrancas: { rotulo: '＋ Nova cobrança',        fn: 'Financeiro.abrirCobrancaVariavel()' },
+      centros:   { rotulo: '＋ Novo centro de custo', fn: 'Financeiro.abrirCentro()' },
     }[nome];
-    if (acao) acao();
+    document.getElementById('finCadAcoes').innerHTML =
+      `<button class="btn btn-primary" onclick="${acoes.fn}">${acoes.rotulo}</button>`;
+
+    ({
+      planos: () => this.carregarPlanosTabela(),
+      contratos: () => this.carregarContratos(),
+      cobrancas: () => this.carregarCobrancas(),
+      centros: () => this.carregarCentros(),
+    })[nome]();
+  },
+
+  // ── Abas de Recebimentos ───────────────────────────────────
+  abrirAbaRecebimento(nome) {
+    document.querySelectorAll('#finAbasRecebimento .aba').forEach(a =>
+      a.classList.toggle('active', a.dataset.recaba === nome));
+    ['mensalidades', 'movimento', 'planilha'].forEach(n =>
+      document.getElementById('recaba-' + n)?.classList.toggle('active', n === nome));
+
+    if (nome === 'mensalidades') { this.montarFiltros(); this.carregarParcelas(); }
+    if (nome === 'movimento') document.getElementById('movCompetencia').value ||= mesAtual();
+    if (nome === 'planilha') document.getElementById('planCompetencia').value ||= mesAtual();
+  },
+
+  /** Planos na aba de cadastros (o modal continua para criar/editar). */
+  async carregarPlanosTabela() {
+    const corpo = document.getElementById('planosPagCorpo');
+    corpo.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px"><span class="spinner"></span></td></tr>`;
+
+    try { this.planos = await Api.get('/api/financeiro/planos'); }
+    catch (e) {
+      corpo.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px;color:var(--red)">${escapar(e.message)}</td></tr>`;
+      return;
+    }
+
+    if (!this.planos.length) {
+      corpo.innerHTML = `<tr><td colspan="7"><div class="vazio">
+        <span class="ico">⚙️</span><div class="titulo">Nenhum plano cadastrado</div>
+        <div class="sub">O plano define o valor base da mensalidade e o vencimento.</div></div></td></tr>`;
+      document.getElementById('planosPagTotal').textContent = 'Nenhum registro';
+      return;
+    }
+
+    corpo.innerHTML = this.planos.map(p => `
+      <tr class="clicavel" ondblclick="Financeiro.abrirPlanos();setTimeout(()=>Financeiro.editarPlano(${p.id}),350)">
+        <td>
+          <div style="font-weight:600">${escapar(p.nome)}</div>
+          ${p.descricao ? `<div style="font-size:11px;color:var(--txt3)">${escapar(p.descricao)}</div>` : ''}
+        </td>
+        <td class="mono">${moedaBR(p.valor_mensalidade)}</td>
+        <td class="mono">${p.taxa_matricula ? moedaBR(p.taxa_matricula) : '—'}</td>
+        <td>${p.num_parcelas}x</td>
+        <td>dia ${p.dia_vencimento}</td>
+        <td>${p.qtd_contratos ? `<span class="badge badge-blue">${p.qtd_contratos}</span>` : '<span class="c-txt3">—</span>'}</td>
+        <td class="acoes">
+          <button class="btn-ico" onclick="Financeiro.abrirPlanos();setTimeout(()=>Financeiro.editarPlano(${p.id}),350)" title="Editar">✏️</button>
+          <button class="btn-ico perigo" onclick="Financeiro.excluirPlano(${p.id})" title="Excluir">🗑️</button>
+        </td>
+      </tr>`).join('');
+
+    const ativos = this.planos.filter(p => p.ativo).length;
+    document.getElementById('planosPagTotal').textContent =
+      `${this.planos.length} plano(s) · ${ativos} ativo(s)`;
   },
 
   /** Garante a lista de centros carregada para os seletores. */
@@ -922,6 +980,16 @@ Object.assign(Financeiro, {
   },
 });
 
+// O modal de planos e a aba de planos mostram a mesma lista:
+// ao mexer num, o outro acompanha.
+const _listarPlanosOriginal = Financeiro.listarPlanos.bind(Financeiro);
+Financeiro.listarPlanos = async function () {
+  await _listarPlanosOriginal();
+  if (document.getElementById('cadaba-planos')?.classList.contains('active')) {
+    this.carregarPlanosTabela();
+  }
+};
+
 // A aba de recebimentos ganhou a coluna de seleção; o corpo é
 // redesenhado aqui para incluir a caixa de marcação.
 const _carregarParcelasOriginal = Financeiro.carregarParcelas.bind(Financeiro);
@@ -949,7 +1017,20 @@ Financeiro.carregarParcelas = async function () {
   this.atualizarLote();
 };
 
+// ── Ligação das páginas ao menu ──────────────────────────────
+Carregadores['fin-painel'] = () => Financeiro.carregarResumo();
+Carregadores['fin-cadastros'] = () => Financeiro.abrirAbaCadastro(
+  document.querySelector('#finAbasCadastro .aba.active')?.dataset.cadaba || 'planos');
+Carregadores['fin-recebimentos'] = () => Financeiro.abrirAbaRecebimento(
+  document.querySelector('#finAbasRecebimento .aba.active')?.dataset.recaba || 'mensalidades');
+Carregadores['fin-pagamentos'] = () => Financeiro.carregarDespesas();
+
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#finAbasCadastro .aba').forEach(a =>
+    a.addEventListener('click', () => Financeiro.abrirAbaCadastro(a.dataset.cadaba)));
+  document.querySelectorAll('#finAbasRecebimento .aba').forEach(a =>
+    a.addEventListener('click', () => Financeiro.abrirAbaRecebimento(a.dataset.recaba)));
+
   ['cobrFiltroCentro', 'cobrFiltroAtiva'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', () => Financeiro.carregarCobrancas()));
   ['despFiltroCentro', 'despFiltroStatus'].forEach(id =>

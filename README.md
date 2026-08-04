@@ -107,9 +107,18 @@ gravidade, providências, anexos (fotos e documentos) e um interruptor de
 por aluno. Podem **exigir ciência**: o responsável toca em "Estou ciente" e o
 sistema grava data e hora. A escola acompanha quem leu e quem confirmou.
 
-**Financeiro** — planos de pagamento, contrato do aluno no ano letivo (com
-desconto e bolsa), geração das parcelas, baixa total, parcial ou **em lote**,
-estorno, extrato por aluno e painel de inadimplência com cobrança pelo WhatsApp.
+**Financeiro** — dividido em quatro módulos, cada um com seu item no menu e sua
+própria permissão, para separar quem cadastra, quem recebe e quem paga:
+
+| Módulo | O que tem |
+|---|---|
+| **Painel** (`fin-painel`) | recebido no mês, em aberto, vencido, inadimplência por aluno com cobrança pelo WhatsApp e alunos sem contrato |
+| **Cadastros** (`fin-cadastros`) | planos de pagamento, contratos, cobranças variáveis e centros de custo |
+| **Recebimentos** (`fin-recebimentos`) | mensalidades com baixa individual e em lote, movimento mensal e planilha de cobrança |
+| **Pagamentos** (`fin-pagamentos`) | despesas: lançamento, baixa, nota fiscal anexada e vencidas |
+
+Contratos do aluno no ano letivo (com desconto e bolsa), geração das parcelas,
+baixa total, parcial ou **em lote**, estorno e extrato discriminado por aluno.
 
 **Cobranças variáveis** — taxas, eventos e serviços cobrados além da
 mensalidade. Na criação escolhe-se:

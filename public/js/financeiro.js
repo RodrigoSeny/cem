@@ -10,23 +10,6 @@ const Financeiro = {
   editandoContrato: null,
   baixando: null,
 
-  // ── Navegação entre abas da página ─────────────────────────
-  abrirAba(nome) {
-    document.querySelectorAll('#finAbas .aba').forEach(a =>
-      a.classList.toggle('active', a.dataset.finaba === nome));
-    ['resumo', 'parcelas', 'contratos'].forEach(n =>
-      document.getElementById('finaba-' + n).classList.toggle('active', n === nome));
-
-    if (nome === 'resumo') this.carregarResumo();
-    if (nome === 'parcelas') this.carregarParcelas();
-    if (nome === 'contratos') this.carregarContratos();
-  },
-
-  carregar() {
-    this.montarFiltros();
-    this.carregarResumo();
-  },
-
   montarFiltros() {
     const sel = document.getElementById('finAluno');
     if (sel.dataset.pronto) return;
@@ -121,9 +104,12 @@ const Financeiro = {
   },
 
   verVencidas() {
-    this.abrirAba('parcelas');
-    document.getElementById('finSituacao').value = 'vencida';
-    this.carregarParcelas();
+    irPara('fin-recebimentos');
+    setTimeout(() => {
+      this.abrirAbaRecebimento('mensalidades');
+      document.getElementById('finSituacao').value = 'vencida';
+      this.carregarParcelas();
+    }, 120);
   },
 
   /** Abre o WhatsApp com uma mensagem de cobrança pronta. */
@@ -490,7 +476,7 @@ const Financeiro = {
       await Api.post('/api/financeiro/mensalidades', d);
       fecharModal('modalCobranca');
       toast('Cobrança lançada.');
-      this.abrirAba('parcelas');
+      this.abrirAbaRecebimento('mensalidades');
     } catch (e) { toastErro(e.message); }
   },
 
@@ -568,12 +554,7 @@ const Financeiro = {
   },
 };
 
-Carregadores.financeiro = () => Financeiro.carregar();
-
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('#finAbas .aba').forEach(a =>
-    a.addEventListener('click', () => Financeiro.abrirAba(a.dataset.finaba)));
-
   ['finAluno', 'finTurma', 'finSituacao', 'finDe', 'finAte'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', () => Financeiro.carregarParcelas()));
 

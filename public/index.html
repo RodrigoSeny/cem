@@ -69,7 +69,15 @@
 
       <div class="nav-section">Administrativo</div>
       <div class="nav-item" data-pagina="funcionarios"><span class="ico">👔</span> Funcionários</div>
-      <div class="nav-item" data-pagina="financeiro"><span class="ico">💰</span> Financeiro</div>
+
+      <div class="nav-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">💰</span> Financeiro</div>
+      <div class="nav-submenu">
+        <div class="nav-submenu-item" data-pagina="fin-painel"><span class="ico">📊</span> Painel</div>
+        <div class="nav-submenu-item" data-pagina="fin-cadastros"><span class="ico">🗂️</span> Cadastros</div>
+        <div class="nav-submenu-item" data-pagina="fin-recebimentos"><span class="ico">💵</span> Recebimentos</div>
+        <div class="nav-submenu-item" data-pagina="fin-pagamentos"><span class="ico">💳</span> Pagamentos</div>
+      </div>
+
       <div class="nav-item" data-pagina="relatorios"><span class="ico">📊</span> Relatórios</div>
 
       <div class="nav-section">Sistema</div>
@@ -363,35 +371,117 @@
     </section>
 
     <!-- ─────────── FINANCEIRO ─────────── -->
-    <section class="pagina" id="pagina-financeiro">
+    <!-- ─────────── FINANCEIRO · PAINEL ─────────── -->
+    <section class="pagina" id="pagina-fin-painel">
       <div class="pagina-head">
         <div>
-          <h1 class="pagina-titulo">Financeiro</h1>
-          <p class="pagina-sub">Planos, contratos, mensalidades e recebimentos</p>
+          <h1 class="pagina-titulo">Painel Financeiro</h1>
+          <p class="pagina-sub">Recebimento do mês, inadimplência e pendências</p>
         </div>
         <div class="pagina-acoes">
-          <button class="btn btn-ghost" onclick="Financeiro.abrirPlanos()">⚙️ Planos</button>
-          <button class="btn btn-ghost" onclick="Financeiro.abrirContrato()">📄 Novo contrato</button>
+          <button class="btn btn-ghost" onclick="Financeiro.carregarResumo()">🔄 Atualizar</button>
+        </div>
+      </div>
+      <div id="finResumo"><div class="vazio"><span class="spinner"></span></div></div>
+    </section>
+
+    <!-- ─────────── FINANCEIRO · CADASTROS ─────────── -->
+    <section class="pagina" id="pagina-fin-cadastros">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Cadastros do Financeiro</h1>
+          <p class="pagina-sub">Planos, contratos, cobranças variáveis e centros de custo</p>
+        </div>
+        <div class="pagina-acoes" id="finCadAcoes"></div>
+      </div>
+
+      <div class="abas" id="finAbasCadastro">
+        <button class="aba active" data-cadaba="planos">Planos</button>
+        <button class="aba" data-cadaba="contratos">Contratos</button>
+        <button class="aba" data-cadaba="cobrancas">Cobranças variáveis</button>
+        <button class="aba" data-cadaba="centros">Centros de custo</button>
+      </div>
+
+      <div class="aba-conteudo active" id="cadaba-planos">
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead><tr><th>Plano</th><th>Mensalidade</th><th>Matrícula</th><th>Parcelas</th><th>Vencimento</th><th>Contratos</th><th class="acoes">Ações</th></tr></thead>
+              <tbody id="planosPagCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="planosPagTotal">—</span></div>
+        </div>
+      </div>
+
+      <div class="aba-conteudo" id="cadaba-contratos">
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Aluno</th><th>Turma</th><th>Plano</th><th>Mensalidade</th><th>Desconto</th><th>Responsável financeiro</th><th>Parcelas</th><th>Status</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="finContratosCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="finContratosTotal">—</span></div>
+        </div>
+      </div>
+
+      <div class="aba-conteudo" id="cadaba-cobrancas">
+        <div class="filtros">
+          <div class="campo">
+            <label>Centro de custo</label>
+            <select class="form-select" id="cobrFiltroCentro" style="min-width:200px"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label>Situação</label>
+            <select class="form-select" id="cobrFiltroAtiva" style="min-width:140px">
+              <option value="">Todas</option><option value="1" selected>Ativas</option><option value="0">Inativas</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="Financeiro.abrirCobrancaVariavel()">＋ Nova cobrança</button>
+        </div>
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Descrição</th><th>Valor</th><th>Alcance</th><th>Periodicidade</th><th>Modo</th><th>Centro de custo</th><th>Alunos</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="cobrCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="cobrTotal">—</span></div>
+        </div>
+      </div>
+
+      <div class="aba-conteudo" id="cadaba-centros">
+        <div class="filtros">
+          <button class="btn btn-primary" onclick="Financeiro.abrirCentro()">＋ Novo centro de custo</button>
+        </div>
+        <div id="centrosLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))"></div>
+      </div>
+    </section>
+
+    <!-- ─────────── FINANCEIRO · RECEBIMENTOS ─────────── -->
+    <section class="pagina" id="pagina-fin-recebimentos">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Recebimentos</h1>
+          <p class="pagina-sub">Baixa das mensalidades, fechamento do mês e planilha de cobrança</p>
+        </div>
+        <div class="pagina-acoes">
           <button class="btn btn-primary" onclick="Financeiro.abrirCobranca()">＋ Cobrança avulsa</button>
         </div>
       </div>
 
-      <div class="abas" id="finAbas">
-        <button class="aba active" data-finaba="resumo">Resumo</button>
-        <button class="aba" data-finaba="parcelas">Recebimentos</button>
-        <button class="aba" data-finaba="cobrancas">Cobranças</button>
-        <button class="aba" data-finaba="movimento">Movimento mensal</button>
-        <button class="aba" data-finaba="planilha">Planilha de cobrança</button>
-        <button class="aba" data-finaba="contratos">Contratos</button>
-        <button class="aba" data-finaba="despesas">Despesas</button>
-        <button class="aba" data-finaba="centros">Centros de custo</button>
+      <div class="abas" id="finAbasRecebimento">
+        <button class="aba active" data-recaba="mensalidades">Mensalidades</button>
+        <button class="aba" data-recaba="movimento">Movimento mensal</button>
+        <button class="aba" data-recaba="planilha">Planilha de cobrança</button>
       </div>
 
-      <div class="aba-conteudo active" id="finaba-resumo">
-        <div id="finResumo"><div class="vazio"><span class="spinner"></span></div></div>
-      </div>
-
-      <div class="aba-conteudo" id="finaba-parcelas">
+      <div class="aba-conteudo active" id="recaba-mensalidades">
         <div class="filtros">
           <div class="campo busca">
             <label>Aluno</label>
@@ -447,36 +537,8 @@
         </div>
       </div>
 
-      <!-- Cobranças variáveis -->
-      <div class="aba-conteudo" id="finaba-cobrancas">
-        <div class="filtros">
-          <div class="campo">
-            <label>Centro de custo</label>
-            <select class="form-select" id="cobrFiltroCentro" style="min-width:200px"><option value="">Todos</option></select>
-          </div>
-          <div class="campo">
-            <label>Situação</label>
-            <select class="form-select" id="cobrFiltroAtiva" style="min-width:140px">
-              <option value="">Todas</option><option value="1" selected>Ativas</option><option value="0">Inativas</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" onclick="Financeiro.abrirCobrancaVariavel()">＋ Nova cobrança</button>
-        </div>
-        <div class="tabela-wrap">
-          <div class="tabela-scroll">
-            <table class="tabela">
-              <thead>
-                <tr><th>Descrição</th><th>Valor</th><th>Alcance</th><th>Periodicidade</th><th>Modo</th><th>Centro de custo</th><th>Alunos</th><th class="acoes">Ações</th></tr>
-              </thead>
-              <tbody id="cobrCorpo"></tbody>
-            </table>
-          </div>
-          <div class="tabela-rodape"><span id="cobrTotal">—</span></div>
-        </div>
-      </div>
-
       <!-- Gerador do movimento mensal -->
-      <div class="aba-conteudo" id="finaba-movimento">
+      <div class="aba-conteudo" id="recaba-movimento">
         <div class="card card-p mb-4">
           <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
             <div class="form-group" style="margin:0">
@@ -495,7 +557,7 @@
       </div>
 
       <!-- Planilha de cobrança -->
-      <div class="aba-conteudo" id="finaba-planilha">
+      <div class="aba-conteudo" id="recaba-planilha">
         <div class="card card-p mb-4">
           <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
             <div class="form-group" style="margin:0">
@@ -520,58 +582,46 @@
         </div>
         <div id="planResultado"></div>
       </div>
+    </section>
 
-      <!-- Despesas -->
-      <div class="aba-conteudo" id="finaba-despesas">
-        <div class="filtros">
-          <div class="campo">
-            <label>Centro de custo</label>
-            <select class="form-select" id="despFiltroCentro" style="min-width:200px"><option value="">Todos</option></select>
-          </div>
-          <div class="campo">
-            <label>Situação</label>
-            <select class="form-select" id="despFiltroStatus" style="min-width:140px">
-              <option value="">Todas</option><option value="aberta">Em aberto</option><option value="paga">Pagas</option>
-            </select>
-          </div>
+    <!-- ─────────── FINANCEIRO · PAGAMENTOS ─────────── -->
+    <section class="pagina" id="pagina-fin-pagamentos">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Pagamentos</h1>
+          <p class="pagina-sub">Contas a pagar da escola, por centro de custo</p>
+        </div>
+        <div class="pagina-acoes">
           <button class="btn btn-primary" onclick="Financeiro.abrirDespesa()">＋ Nova despesa</button>
         </div>
-        <div class="tabela-wrap">
-          <div class="tabela-scroll">
-            <table class="tabela">
-              <thead>
-                <tr><th>Descrição</th><th>Fornecedor</th><th>Centro de custo</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th class="acoes">Ações</th></tr>
-              </thead>
-              <tbody id="despCorpo"></tbody>
-            </table>
-          </div>
-          <div class="tabela-rodape"><span id="despTotal">—</span></div>
-        </div>
       </div>
 
-      <!-- Centros de custo -->
-      <div class="aba-conteudo" id="finaba-centros">
-        <div class="filtros">
-          <button class="btn btn-primary" onclick="Financeiro.abrirCentro()">＋ Novo centro de custo</button>
+      <div class="filtros">
+        <div class="campo">
+          <label>Centro de custo</label>
+          <select class="form-select" id="despFiltroCentro" style="min-width:200px"><option value="">Todos</option></select>
         </div>
-        <div id="centrosLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))"></div>
+        <div class="campo">
+          <label>Situação</label>
+          <select class="form-select" id="despFiltroStatus" style="min-width:140px">
+            <option value="">Todas</option><option value="aberta">Em aberto</option><option value="paga">Pagas</option>
+          </select>
+        </div>
       </div>
-
-      <div class="aba-conteudo" id="finaba-contratos">
-        <div class="tabela-wrap">
-          <div class="tabela-scroll">
-            <table class="tabela">
-              <thead>
-                <tr><th>Aluno</th><th>Turma</th><th>Plano</th><th>Mensalidade</th><th>Desconto</th><th>Responsável financeiro</th><th>Parcelas</th><th>Status</th><th class="acoes">Ações</th></tr>
-              </thead>
-              <tbody id="finContratosCorpo"></tbody>
-            </table>
-          </div>
-          <div class="tabela-rodape"><span id="finContratosTotal">—</span></div>
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr><th>Descrição</th><th>Fornecedor</th><th>Centro de custo</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th class="acoes">Ações</th></tr>
+            </thead>
+            <tbody id="despCorpo"></tbody>
+          </table>
         </div>
+        <div class="tabela-rodape"><span id="despTotal">—</span></div>
       </div>
     </section>
 
+    <!-- Conteúdo das abas de Cadastros (movido por JS para dentro da aba) -->
     <!-- ─────────── RELATÓRIOS ─────────── -->
     <section class="pagina" id="pagina-relatorios">
       <div class="pagina-head">
