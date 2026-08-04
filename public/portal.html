@@ -14,6 +14,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
+  <!-- main.css traz os componentes compartilhados: badges, modais e formulários -->
+  <link rel="stylesheet" href="/css/main.css">
   <style>
     body { background: var(--bg); padding-bottom: 78px; }
 
@@ -216,6 +218,25 @@
   <button data-tela="consulta"><span class="ico">🔎</span> <span id="rotuloConsulta">Consultar</span></button>
   <button data-tela="conta"><span class="ico">👤</span> Conta</button>
 </nav>
+
+<!-- Troca de senha -->
+<div class="modal-overlay" id="modalSenhaApp">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head">
+      <div><h3>Trocar senha</h3><div class="sub">Mínimo de 6 caracteres</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalSenhaApp')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Senha atual</label><input class="form-input" type="password" id="appSenhaAtual"></div>
+      <div class="form-group"><label class="form-label">Nova senha</label><input class="form-input" type="password" id="appSenhaNova"></div>
+      <div class="form-group"><label class="form-label">Repita a nova senha</label><input class="form-input" type="password" id="appSenhaConfirma"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalSenhaApp')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Portal.salvarSenha()">🔑 Trocar</button>
+    </div>
+  </div>
+</div>
 
 <script src="/js/core.js"></script>
 <script src="/js/portal.js"></script>

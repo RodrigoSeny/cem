@@ -122,13 +122,16 @@
       <button class="btn-entrar" id="btnEntrar" onclick="entrar()">Entrar</button>
 
       <div class="rodape-links">
-        É pai ou responsável? <a href="/app">Acessar o aplicativo</a>
+        É pai ou responsável? <a href="/app-login">Acessar o aplicativo</a>
       </div>
     </div>
     <p class="versao">CEM · ERP Escolar v1.0</p>
   </div>
 
+  <script src="/js/core.js"></script>
   <script>
+    ativarVerSenha();
+
     // Preenche nome e logo a partir das configurações da escola
     fetch('/api/escola/publica')
       .then(r => r.json())

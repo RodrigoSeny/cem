@@ -319,6 +319,7 @@ async function iniciar() {
 
   aplicarPermissoes();
   aplicarMascaras();
+  ativarVerSenha();
   Atalhos.iniciar();
 
   // Listas compartilhadas

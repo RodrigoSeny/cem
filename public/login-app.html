@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CEM — App dos Responsáveis</title>
+  <meta name="theme-color" content="#F2A6A6">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/LogoMilezi.jpg">
+  <link rel="apple-touch-icon" href="/img/LogoMilezi.jpg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <style>
+    /* A identidade do app é a borracha rosa do lápis do logo — o
+       sistema da escola usa o amarelo. Quem abre já sabe onde está. */
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px;
+      background:
+        radial-gradient(880px 460px at 50% -10%, rgba(242,166,166,.22), transparent 62%),
+        radial-gradient(700px 400px at 105% 106%, rgba(242,183,5,.10), transparent 60%),
+        var(--bg);
+    }
+
+    .wrap { width: 100%; max-width: 400px; animation: fadeUp .4s ease; }
+
+    .faixa-app {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(135deg, #F2A6A6, #F7C3C3);
+      color: #2A1B1B;
+      border-radius: 14px 14px 0 0;
+      padding: 11px 16px;
+      font-size: 11.5px; font-weight: 700;
+      letter-spacing: .16em; text-transform: uppercase;
+    }
+
+    .cartao {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 22px 22px;
+      padding: 30px 28px 26px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.42);
+    }
+
+    .marca { text-align: center; margin-bottom: 22px; }
+    .marca img {
+      width: 84px; height: 84px;
+      border-radius: 26px; background: #fff; padding: 5px; object-fit: contain;
+      box-shadow: 0 0 0 1px var(--border), 0 10px 28px rgba(242,166,166,.3);
+    }
+    .marca h1 { font-size: 17px; font-weight: 700; margin-top: 13px; }
+    .marca p { font-size: 12.5px; color: var(--txt2); margin-top: 6px; line-height: 1.5; }
+
+    .campo { margin-bottom: 15px; }
+    .campo label {
+      display: block; font-size: 10.5px; font-weight: 700;
+      color: var(--txt2); text-transform: uppercase; letter-spacing: .1em;
+      margin-bottom: 7px;
+    }
+    .campo input {
+      width: 100%; background: var(--surface); color: var(--txt);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 13px 14px; font-size: 15px; font-family: var(--font);
+      outline: none; transition: border-color .18s, box-shadow .18s;
+    }
+    .campo input:focus {
+      border-color: #F2A6A6;
+      box-shadow: 0 0 0 3px rgba(242,166,166,.18);
+    }
+
+    .btn-entrar {
+      width: 100%; margin-top: 8px;
+      background: linear-gradient(135deg, #F2A6A6, #F7C3C3);
+      color: #2A1B1B; border: none; border-radius: 12px; padding: 14px;
+      font-family: var(--font); font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: filter .15s, transform .1s;
+    }
+    .btn-entrar:hover:not(:disabled) { filter: brightness(1.05); }
+    .btn-entrar:active:not(:disabled) { transform: scale(.99); }
+    .btn-entrar:disabled { opacity: .6; cursor: not-allowed; }
+
+    .erro {
+      display: none;
+      background: rgba(255,94,94,.11); border: 1px solid rgba(255,94,94,.3);
+      color: var(--red); border-radius: 10px; padding: 11px 14px;
+      font-size: 12.5px; margin-bottom: 15px;
+    }
+    .erro.mostrar { display: block; animation: fadeUp .2s ease; }
+
+    .ajuda {
+      margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--txt2); text-align: center; line-height: 1.6;
+    }
+    .ajuda a { font-weight: 600; color: var(--txt2); text-decoration: underline; }
+    .ajuda a:hover { color: var(--gold); }
+
+    .instalar {
+      display: none; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px dashed #F2A6A6;
+      border-radius: 12px; padding: 11px 13px; margin-top: 16px;
+      font-size: 12px; color: var(--txt2);
+    }
+    .instalar button {
+      margin-left: auto; background: #F2A6A6; color: #2A1B1B; border: none;
+      border-radius: 9px; padding: 7px 12px;
+      font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="faixa-app">👨‍👩‍👧 App dos Responsáveis</div>
+
+    <div class="cartao">
+      <div class="marca">
+        <img src="/img/LogoMilezi.jpg" alt="Centro Educacional Milezi" id="logoEscola">
+        <h1 id="nomeEscola">Centro Educacional Milezi</h1>
+        <p>Acompanhe a turma, a ficha de saúde, os comunicados<br>e as mensalidades do seu filho.</p>
+      </div>
+
+      <div class="erro" id="erroMsg"></div>
+
+      <div class="campo">
+        <label for="login">Usuário ou e-mail</label>
+        <input type="text" id="login" autocomplete="username" placeholder="Como a secretaria informou" autofocus>
+      </div>
+
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" autocomplete="current-password" placeholder="Sua senha">
+      </div>
+
+      <button class="btn-entrar" id="btnEntrar" onclick="entrar()">Entrar no app</button>
+
+      <div class="instalar" id="barraInstalar">
+        <span style="font-size:17px">📲</span>
+        <span>Instale o app na tela inicial.</span>
+        <button onclick="instalarApp()">Instalar</button>
+      </div>
+
+      <div class="ajuda">
+        Não tem acesso? Peça à secretaria da escola.<br>
+        É funcionário? <a href="/">Entrar no sistema</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/core.js"></script>
+  <script>
+    // Marca da escola
+    fetch('/api/escola/publica').then(r => r.json()).then(e => {
+      if (e.nome_fantasia) document.getElementById('nomeEscola').textContent = e.nome_fantasia;
+      if (e.logo_url) document.getElementById('logoEscola').src = e.logo_url;
+    }).catch(() => {});
+
+    // Já autenticado? vai direto ao destino do perfil
+    (function () {
+      const token = sessionStorage.getItem('cem_token');
+      if (!token) return;
+      try {
+        const p = JSON.parse(atob(token.split('.')[1]));
+        if (p.exp * 1000 > Date.now()) {
+          window.location.href = p.tipo === 'responsavel' ? '/app' : '/sistema';
+          return;
+        }
+      } catch (e) {}
+      sessionStorage.removeItem('cem_token');
+      sessionStorage.removeItem('cem_usuario');
+    })();
+
+    document.getElementById('login').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('senha').focus();
+    });
+    document.getElementById('senha').addEventListener('keydown', e => {
+      if (e.key === 'Enter') entrar();
+    });
+
+    ativarVerSenha();
+
+    // Instalação do PWA
+    let promptInstalacao = null;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      promptInstalacao = e;
+      document.getElementById('barraInstalar').style.display = 'flex';
+    });
+    async function instalarApp() {
+      if (!promptInstalacao) return;
+      promptInstalacao.prompt();
+      await promptInstalacao.userChoice;
+      promptInstalacao = null;
+      document.getElementById('barraInstalar').style.display = 'none';
+    }
+
+    function mostrarErro(msg) {
+      const el = document.getElementById('erroMsg');
+      el.textContent = msg;
+      el.classList.add('mostrar');
+    }
+
+    async function entrar() {
+      const login = document.getElementById('login').value.trim();
+      const senha = document.getElementById('senha').value;
+      const btn = document.getElementById('btnEntrar');
+      document.getElementById('erroMsg').classList.remove('mostrar');
+
+      if (!login || !senha) return mostrarErro('Preencha o usuário e a senha.');
+
+      btn.disabled = true;
+      btn.textContent = 'Entrando...';
+
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, senha })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          mostrarErro(data.error || 'Não foi possível entrar.');
+          document.getElementById('senha').value = '';
+          document.getElementById('senha').focus();
+          return;
+        }
+
+        sessionStorage.setItem('cem_token', data.token);
+        sessionStorage.setItem('cem_usuario', JSON.stringify(data.usuario));
+        window.location.href = data.usuario.tipo === 'responsavel' ? '/app' : '/sistema';
+      } catch (e) {
+        mostrarErro('Erro de conexão com o servidor.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Entrar no app';
+      }
+    }
+  </script>
+</body>
+</html>

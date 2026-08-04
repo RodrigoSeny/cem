@@ -635,15 +635,27 @@ const Portal = {
       </div>`;
   },
 
-  async trocarSenha() {
-    const atual = prompt('Digite sua senha atual:');
-    if (atual === null) return;
-    const nova = prompt('Digite a nova senha (mínimo 6 caracteres):');
-    if (nova === null) return;
+  trocarSenha() {
+    ['appSenhaAtual', 'appSenhaNova', 'appSenhaConfirma'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = '';
+      el.type = 'password';
+    });
+    ativarVerSenha(document.getElementById('modalSenhaApp'));
+    abrirModal('modalSenhaApp');
+  },
+
+  async salvarSenha() {
+    const atual = document.getElementById('appSenhaAtual').value;
+    const nova = document.getElementById('appSenhaNova').value;
+    const conf = document.getElementById('appSenhaConfirma').value;
+
     if (nova.length < 6) return toastErro('A nova senha precisa ter ao menos 6 caracteres.');
+    if (nova !== conf) return toastErro('A confirmação não confere com a nova senha.');
 
     try {
       await Api.post('/api/auth/trocar-senha', { senha_atual: atual, senha_nova: nova });
+      fecharModal('modalSenhaApp');
       toast('Senha alterada com sucesso.');
     } catch (e) { toastErro(e.message); }
   },

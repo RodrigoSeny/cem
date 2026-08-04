@@ -84,6 +84,8 @@ app.use('/img', express.static(path.join(__dirname, 'img'), { maxAge: '7d' }));
 app.get('/', (req, res) => res.sendFile(path.join(PUBLIC, 'login.html')));
 app.get('/sistema', (req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
 app.get('/app', (req, res) => res.sendFile(path.join(PUBLIC, 'portal.html')));
+// Login próprio do aplicativo — visual distinto do sistema da escola
+app.get('/app-login', (req, res) => res.sendFile(path.join(PUBLIC, 'login-app.html')));
 
 // 404 da API em JSON (evita devolver HTML para o fetch)
 app.use('/api', (req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));

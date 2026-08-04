@@ -141,6 +141,20 @@ img { max-width: 100%; }
   display: inline-block;
 }
 
+/* ── Campo de senha com botão de visualizar ─────────────────── */
+.campo-senha { position: relative; display: block; }
+.campo-senha input { padding-right: 44px !important; width: 100%; }
+.ver-senha {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px;
+  background: transparent; border: none; border-radius: 8px;
+  cursor: pointer; font-size: 15px; line-height: 1;
+  color: var(--txt2);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.ver-senha:hover { background: var(--card2); }
+
 /* Marca d'água do lápis usada em telas vazias */
 .vazio {
   text-align: center;

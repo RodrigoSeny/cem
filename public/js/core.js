@@ -20,16 +20,23 @@ const Sessao = {
     sessionStorage.setItem('cem_token', token);
     sessionStorage.setItem('cem_usuario', JSON.stringify(usuario));
   },
+  /** Quem está no app volta para o login do app; o resto, para o do sistema. */
+  telaLogin() {
+    return location.pathname.startsWith('/app') ? '/app-login' : '/';
+  },
+
   encerrar() {
+    const destino = this.telaLogin();
     sessionStorage.removeItem('cem_token');
     sessionStorage.removeItem('cem_usuario');
-    window.location.href = '/';
+    window.location.href = destino;
   },
+
   /** Exige sessão válida do tipo indicado ('funcionario' | 'responsavel' | null = qualquer). */
   exigir(tipo) {
     const t = this.token();
     const u = this.usuario();
-    if (!t || !u) { window.location.href = '/'; return null; }
+    if (!t || !u) { window.location.href = this.telaLogin(); return null; }
     try {
       const p = JSON.parse(atob(t.split('.')[1]));
       if (p.exp * 1000 <= Date.now()) { this.encerrar(); return null; }
@@ -138,13 +145,23 @@ function fecharModal(id) {
   if (el) el.classList.remove('aberto');
 }
 
-// Modal de cadastro NÃO fecha ao clicar fora: um clique acidental no fundo
-// descartava um formulário inteiro. Só fecha pelo ✕, pelo Cancelar ou por ESC.
-// Diálogos pequenos (confirmação) continuam fechando no clique fora.
+/** O modal tem campos preenchíveis? Se tem, é cadastro. */
+function ehFormulario(modal) {
+  return !!modal.querySelector('input:not([type=checkbox]):not([type=radio]), textarea, select');
+}
+
+// Modal de cadastro não fecha sozinho — nem por clique fora, nem por ESC.
+// Um toque acidental descartava o formulário inteiro. Fecha só pelo ✕,
+// pelo Cancelar ou pelo botão de salvar. Modais de leitura (ficha, extrato,
+// detalhe) continuam saindo com ESC, porque ali não há nada a perder.
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const abertos = document.querySelectorAll('.modal-overlay.aberto');
-  if (abertos.length) abertos[abertos.length - 1].classList.remove('aberto');
+  if (!abertos.length) return;
+
+  const topo = abertos[abertos.length - 1];
+  if (ehFormulario(topo)) return;
+  topo.classList.remove('aberto');
 });
 
 /** Confirmação em modal (substitui o confirm() do navegador). */
@@ -642,6 +659,40 @@ const UI = {
     } catch (e) { toastErro(e.message); }
   },
 };
+
+/**
+ * Coloca o botão de "ver senha" ao lado de todo input[type=password].
+ * Digitar senha às cegas é a maior fonte de erro de login — mostrar
+ * o que foi digitado antes de confirmar resolve.
+ */
+function ativarVerSenha(raiz = document) {
+  raiz.querySelectorAll('input[type=password]').forEach(campo => {
+    if (campo._temOlho) return;
+    campo._temOlho = true;
+
+    const caixa = document.createElement('div');
+    caixa.className = 'campo-senha';
+    campo.parentNode.insertBefore(caixa, campo);
+    caixa.appendChild(campo);
+
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'ver-senha';
+    botao.textContent = '👁';
+    botao.title = 'Mostrar a senha';
+    botao.setAttribute('aria-label', 'Mostrar a senha');
+    caixa.appendChild(botao);
+
+    botao.addEventListener('click', () => {
+      const visivel = campo.type === 'text';
+      campo.type = visivel ? 'password' : 'text';
+      botao.textContent = visivel ? '👁' : '🙈';
+      botao.title = visivel ? 'Mostrar a senha' : 'Ocultar a senha';
+      botao.setAttribute('aria-label', botao.title);
+      campo.focus();
+    });
+  });
+}
 
 /** Debounce para campos de busca. */
 function debounce(fn, ms = 350) {

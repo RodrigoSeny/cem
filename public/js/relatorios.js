@@ -64,8 +64,8 @@ const Relatorios = {
       </div>`;
     document.body.appendChild(el);
 
+    // Sem fechar no clique fora: o seletor faz parte de um fluxo de emissão
     el.querySelector('[data-acao=cancelar]').onclick = () => el.remove();
-    el.onclick = e => { if (e.target === el) el.remove(); };
     el.querySelector('[data-acao=ok]').onclick = () => {
       const v = el.querySelector('#_selTurmaRel').value;
       el.remove();
