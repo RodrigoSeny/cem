@@ -189,7 +189,47 @@ sem HTTPS o PWA não instala.
 
 Pastas que **não** vão para o Git e precisam existir no servidor:
 `dados/` (banco SQLite) e `uploads/` (documentos anexados). O `deploy.sh` cria
-as duas. Inclua ambas na sua rotina de backup.
+as duas.
+
+### Domínio e HTTPS
+
+```bash
+bash /var/www/cem/nginx-setup.sh cem.seudominio.com.br
+```
+
+O script confere se o DNS já aponta para a VPS, instala Nginx e Certbot se
+faltarem, cria o proxy reverso para a porta 3300 e emite o certificado.
+
+Dois detalhes que o proxy resolve: `client_max_body_size 15M` (o padrão do Nginx
+é 1 MB e derrubaria o envio de documentos com erro 413) e `Cache-Control:
+no-store` no `/sw.js`, para o celular não ficar preso na versão antiga do app.
+
+**Sem HTTPS o PWA não instala.** No navegador funciona, mas não vira app na tela
+inicial.
+
+### Backup
+
+```bash
+bash /var/www/cem/backup.sh
+```
+
+Grava em `/var/backups/cem` (ou na pasta passada como argumento): o banco, os
+documentos e uma cópia do `.env`. Mantém 30 dias.
+
+O banco é copiado com **`VACUUM INTO`**, não com `cp`. Em modo WAL o arquivo
+`cem.db` costuma ficar praticamente vazio — as gravações recentes vivem no
+`cem.db-wal`. Copiar só o `.db` produz um backup **inútil**: num teste real, o
+`cem.db` tinha 4 KB contra 1,6 MB de WAL, e a cópia simples abria sem nenhuma
+tabela. O `VACUUM INTO` consolida tudo num arquivo único, e o script confere o
+resultado com `integrity_check` antes de dar o backup por bom.
+
+Para rodar todo dia às 2h:
+
+```bash
+(crontab -l 2>/dev/null; echo "0 2 * * * bash /var/www/cem/backup.sh >> /var/log/cem/backup.log 2>&1") | crontab -
+```
+
+Restauração: o próprio script imprime os comandos ao terminar.
 
 ## Naturalidade e a lista de municípios
 
