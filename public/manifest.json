@@ -1,0 +1,26 @@
+{
+  "name": "CEM — Centro Educacional Milezi",
+  "short_name": "CEM",
+  "description": "Aplicativo do Centro Educacional Milezi para responsáveis e equipe da escola.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1014",
+  "theme_color": "#F2B705",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/img/icone-cem.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/LogoMilezi.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

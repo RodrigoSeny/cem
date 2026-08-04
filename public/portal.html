@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CEM — App da Escola</title>
+  <meta name="theme-color" content="#F2B705">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/LogoMilezi.jpg">
+  <link rel="apple-touch-icon" href="/img/LogoMilezi.jpg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="CEM">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <style>
+    body { background: var(--bg); padding-bottom: 78px; }
+
+    /* ── Topo ──────────────────────────────────────────── */
+    .topo {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: calc(11px + env(safe-area-inset-top)) 16px 11px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .topo img {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: #fff; padding: 2px; object-fit: contain;
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .topo .txt { flex: 1; min-width: 0; }
+    .topo .escola { font-size: 13.5px; font-weight: 700; line-height: 1.2; }
+    .topo .sub { font-size: 11px; color: var(--txt2); margin-top: 1px; }
+    .topo button {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--txt2); font-size: 15px; cursor: pointer;
+    }
+
+    .conteudo { padding: 16px; max-width: 720px; margin: 0 auto; }
+
+    /* ── Saudação ──────────────────────────────────────── */
+    .ola {
+      background: linear-gradient(135deg, rgba(242,183,5,.16), rgba(242,166,166,.09));
+      border: 1px solid rgba(242,183,5,.25);
+      border-radius: 17px; padding: 17px 19px; margin-bottom: 18px;
+    }
+    .ola h2 { font-size: 17px; font-weight: 700; }
+    .ola p { font-size: 12.5px; color: var(--txt2); margin-top: 4px; }
+
+    /* ── Cartões ───────────────────────────────────────── */
+    .titulo-secao {
+      font-size: 10.5px; font-weight: 700; color: var(--txt3);
+      text-transform: uppercase; letter-spacing: .12em;
+      margin: 22px 0 11px;
+    }
+    .cartao {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 16px; margin-bottom: 12px;
+      transition: border-color .15s, transform .12s;
+    }
+    .cartao.toque { cursor: pointer; }
+    .cartao.toque:active { transform: scale(.99); border-color: var(--gold); }
+
+    .aluno-linha { display: flex; align-items: center; gap: 13px; }
+    .aluno-av {
+      width: 47px; height: 47px; border-radius: 14px; flex-shrink: 0;
+      background: var(--grad-gold); color: #1A1A1A;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700;
+    }
+    .aluno-nome { font-size: 14.5px; font-weight: 700; line-height: 1.25; }
+    .aluno-info { font-size: 12px; color: var(--txt2); margin-top: 3px; }
+    .seta { color: var(--txt3); font-size: 19px; }
+
+    .info-linha {
+      display: flex; gap: 10px; padding: 8px 0;
+      border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .info-linha:last-child { border-bottom: none; }
+    .info-linha .rot { min-width: 128px; color: var(--txt2); font-size: 12.5px; }
+    .info-linha .val { flex: 1; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+
+    /* ── Navegação inferior ────────────────────────────── */
+    .rodape {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
+    }
+    .rodape button {
+      flex: 1; background: none; border: none; cursor: pointer;
+      color: var(--txt3); font-family: var(--font);
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 6px 2px; border-radius: 11px;
+      font-size: 10.5px; font-weight: 600;
+    }
+    .rodape button .ico { font-size: 19px; line-height: 1; }
+    .rodape button.active { color: var(--gold); background: var(--gold-soft); }
+
+    .tela { display: none; }
+    .tela.active { display: block; animation: fadeUp .22s ease; }
+
+    /* ── Instalar o app ────────────────────────────────── */
+    #barraInstalar {
+      display: none; align-items: center; gap: 11px;
+      background: var(--card); border: 1px dashed var(--gold);
+      border-radius: 14px; padding: 12px 14px; margin-bottom: 16px;
+    }
+    #barraInstalar .txt { flex: 1; font-size: 12.5px; }
+    #barraInstalar button {
+      background: var(--grad-gold); color: #1A1A1A; border: none;
+      border-radius: 9px; padding: 8px 13px;
+      font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+
+    .busca-app {
+      width: 100%; background: var(--card); color: var(--txt);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 11px 14px; font-size: 14px; font-family: var(--font);
+      outline: none; margin-bottom: 14px;
+    }
+    .busca-app:focus { border-color: var(--gold); }
+
+    /* ── Selo de mensagens não lidas ───────────────────── */
+    .selo {
+      display: none;
+      position: absolute; top: -5px; right: -9px;
+      min-width: 17px; height: 17px; padding: 0 4px;
+      background: var(--red); color: #fff;
+      border-radius: 9px; font-size: 10px; font-weight: 700;
+      line-height: 17px; text-align: center;
+      box-shadow: 0 0 0 2px var(--surface);
+    }
+    .selo.mostrar { display: block; animation: pulsar 2s ease-in-out 3; }
+
+    /* ── Cartão de mensagem ────────────────────────────── */
+    .msg-card { border-left: 3px solid var(--border); }
+    .msg-card.nova { border-left-color: var(--gold); background: var(--gold-soft); }
+    .msg-card.pendente { border-left-color: var(--red); }
+    .msg-topo { display: flex; align-items: flex-start; gap: 10px; }
+    .msg-titulo { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+    .msg-meta { font-size: 11px; color: var(--txt3); margin-top: 3px; }
+    .msg-texto { font-size: 13px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+    .btn-ciente {
+      width: 100%; margin-top: 13px;
+      background: var(--grad-gold); color: #1A1A1A; border: none;
+      border-radius: 11px; padding: 12px;
+      font-family: var(--font); font-size: 13.5px; font-weight: 700; cursor: pointer;
+    }
+    .btn-ciente:disabled { background: var(--card2); color: var(--green); cursor: default; }
+
+    /* ── Financeiro no app ─────────────────────────────── */
+    .fin-linha {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .fin-linha:last-child { border-bottom: none; }
+    .fin-valor { margin-left: auto; text-align: right; }
+    .fin-valor .v { font-family: var(--mono); font-weight: 700; font-size: 13.5px; }
+  </style>
+</head>
+<body>
+
+<div class="topo">
+  <img src="/img/LogoMilezi.jpg" alt="CEM" id="appLogo">
+  <div class="txt">
+    <div class="escola" id="appEscola">Centro Educacional Milezi</div>
+    <div class="sub" id="appSub">Aplicativo da escola</div>
+  </div>
+  <button onclick="alternarTemaApp()" title="Tema">🌗</button>
+  <button onclick="Sessao.encerrar()" title="Sair">🚪</button>
+</div>
+
+<div class="conteudo">
+  <div id="barraInstalar">
+    <span style="font-size:20px">📲</span>
+    <div class="txt">Instale o app na tela inicial para acessar mais rápido.</div>
+    <button onclick="instalarApp()">Instalar</button>
+  </div>
+
+  <!-- Início -->
+  <section class="tela active" id="tela-inicio">
+    <div id="inicioConteudo"><div class="vazio"><span class="spinner"></span></div></div>
+  </section>
+
+  <!-- Consulta -->
+  <section class="tela" id="tela-consulta">
+    <div id="consultaConteudo"></div>
+  </section>
+
+  <!-- Detalhe do aluno -->
+  <section class="tela" id="tela-aluno">
+    <div id="alunoConteudo"></div>
+  </section>
+
+  <!-- Mensagens -->
+  <section class="tela" id="tela-mensagens">
+    <div id="mensagensConteudo"></div>
+  </section>
+
+  <!-- Escola / conta -->
+  <section class="tela" id="tela-conta">
+    <div id="contaConteudo"></div>
+  </section>
+</div>
+
+<nav class="rodape" id="rodapeNav">
+  <button class="active" data-tela="inicio"><span class="ico">🏠</span> Início</button>
+  <button data-tela="mensagens" id="btnMensagens">
+    <span class="ico" style="position:relative">✉️<span class="selo" id="seloMensagens">0</span></span> Mensagens
+  </button>
+  <button data-tela="consulta"><span class="ico">🔎</span> <span id="rotuloConsulta">Consultar</span></button>
+  <button data-tela="conta"><span class="ico">👤</span> Conta</button>
+</nav>
+
+<script src="/js/core.js"></script>
+<script src="/js/portal.js"></script>
+</body>
+</html>

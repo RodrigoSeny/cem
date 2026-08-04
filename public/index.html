@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEM — Sistema de Gestão Escolar</title>
+  <meta name="theme-color" content="#F2B705">
+  <link rel="icon" href="/img/LogoMilezi.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+
+<!-- ═══════════ GUIA DE ATALHOS (abas fixáveis) ═══════════ -->
+<div class="faixa-atalhos" id="faixaAtalhos">
+  <div class="atalhos-user">
+    <span class="avatar" id="atalhoAvatar">--</span>
+    <span class="nome"  id="atalhoNome">—</span>
+    <button class="btn-ico" onclick="alternarTema()" title="Alternar tema claro/escuro">🌗</button>
+    <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">🚪</button>
+  </div>
+  <div class="atalhos-tabs" id="atalhosTabs"></div>
+  <button class="btn-ico" id="btnAddAtalho" onclick="Atalhos.abrirMenu(event)" title="Adicionar atalho" style="font-size:18px;font-weight:700">+</button>
+</div>
+
+<!-- Menu flutuante do botão "+" -->
+<div class="atalhos-menu" id="atalhosMenu">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 9px">
+    <div style="font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3)">Fixar atalho</div>
+    <button class="btn-ico" onclick="Atalhos.fecharMenu()">✕</button>
+  </div>
+  <input type="text" class="form-input" id="atalhosBusca" placeholder="Filtrar páginas…"
+         oninput="Atalhos.renderMenu()" style="margin-bottom:9px;min-height:34px;font-size:12.5px">
+  <div id="atalhosMenuLista"></div>
+</div>
+
+<!-- Hamburguer (mobile) -->
+<button class="nav-toggle" id="navToggle" onclick="alternarMenu()" aria-label="Menu">☰</button>
+<div class="nav-overlay" id="navOverlay" onclick="alternarMenu()"></div>
+
+<div class="shell">
+  <!-- ═══════════ MENU LATERAL ═══════════ -->
+  <nav class="nav" id="navMenu">
+    <div class="nav-logo">
+      <img src="/img/LogoMilezi.jpg" alt="CEM" id="navLogo">
+      <div>
+        <div class="nav-logo-txt" id="navNomeEscola">Centro Educacional<br>Milezi</div>
+        <div class="nav-logo-sub">Gestão Escolar</div>
+      </div>
+    </div>
+
+    <div class="nav-scroll">
+      <div class="nav-section">Menu principal</div>
+      <div class="nav-item active" data-pagina="home"><span class="ico">🏠</span> Painel</div>
+
+      <div class="nav-section">Secretaria</div>
+      <div class="nav-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">🎓</span> Alunos</div>
+      <div class="nav-submenu">
+        <div class="nav-submenu-item" data-pagina="alunos"><span class="ico">📋</span> Cadastro de Alunos</div>
+        <div class="nav-submenu-item" data-pagina="turmas"><span class="ico">🏫</span> Turmas</div>
+      </div>
+
+      <div class="nav-item" data-pagina="responsaveis"><span class="ico">👨‍👩‍👧</span> Responsáveis</div>
+      <div class="nav-item" data-pagina="ocorrencias"><span class="ico">📌</span> Ocorrências</div>
+      <div class="nav-item" data-pagina="mensagens"><span class="ico">✉️</span> Mensagens</div>
+
+      <div class="nav-section">Administrativo</div>
+      <div class="nav-item" data-pagina="funcionarios"><span class="ico">👔</span> Funcionários</div>
+      <div class="nav-item" data-pagina="financeiro"><span class="ico">💰</span> Financeiro</div>
+      <div class="nav-item" data-pagina="relatorios"><span class="ico">📊</span> Relatórios</div>
+
+      <div class="nav-section">Sistema</div>
+      <div class="nav-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">🔐</span> Acessos</div>
+      <div class="nav-submenu">
+        <div class="nav-submenu-item" data-pagina="usuarios"><span class="ico">👥</span> Usuários</div>
+        <div class="nav-submenu-item" data-pagina="perfis"><span class="ico">🛡️</span> Perfis de Acesso</div>
+      </div>
+      <div class="nav-item" data-pagina="configuracoes"><span class="ico">⚙️</span> Configurações</div>
+      <div class="nav-item" onclick="window.open('/app','_blank')"><span class="ico">📱</span> Abrir o App</div>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-user">
+        <div class="nav-user-avatar" id="navAvatar">--</div>
+        <div style="flex:1;min-width:0">
+          <div class="nav-user-nome" id="navNome">—</div>
+          <div class="nav-user-perfil" id="navPerfil">—</div>
+        </div>
+        <button class="btn-ico" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════ CONTEÚDO ═══════════ -->
+  <main class="main" id="main">
+
+    <!-- ─────────── PAINEL ─────────── -->
+    <section class="pagina active" id="pagina-home">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Painel</h1>
+          <p class="pagina-sub" id="painelSaudacao">Visão geral da escola</p>
+        </div>
+        <div class="pagina-acoes">
+          <select class="form-select" id="painelAno" onchange="Dashboard.carregar()" style="min-width:130px"></select>
+          <button class="btn btn-ghost" onclick="Dashboard.carregar()">🔄 Atualizar</button>
+        </div>
+      </div>
+      <div id="painelConteudo"><div class="vazio"><span class="spinner"></span></div></div>
+    </section>
+
+    <!-- ─────────── ALUNOS ─────────── -->
+    <section class="pagina" id="pagina-alunos">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Alunos</h1>
+          <p class="pagina-sub">Matrículas, fichas e vínculos com responsáveis</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-ghost" onclick="Relatorios.imprimirListaAlunos(Alunos.filtrosAtuais())">🖨️ Imprimir lista</button>
+          <button class="btn btn-primary" onclick="Alunos.abrirNovo()">＋ Novo aluno</button>
+        </div>
+      </div>
+
+      <div class="filtros">
+        <div class="campo busca">
+          <label>Buscar</label>
+          <input type="text" class="form-input" id="alunosBusca" placeholder="Nome, matrícula ou CPF…">
+        </div>
+        <div class="campo">
+          <label>Turma</label>
+          <select class="form-select" id="alunosTurma" style="min-width:180px"><option value="">Todas</option></select>
+        </div>
+        <div class="campo">
+          <label>Situação</label>
+          <select class="form-select" id="alunosSituacao" style="min-width:160px">
+            <option value="">Todas</option>
+            <option value="matriculado" selected>Matriculado</option>
+            <option value="pre_matricula">Pré-matrícula</option>
+            <option value="transferido">Transferido</option>
+            <option value="trancado">Trancado</option>
+            <option value="desistente">Desistente</option>
+            <option value="egresso">Egresso</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Aluno</th><th>Matrícula</th><th>Turma</th><th>Idade</th>
+                <th>Responsáveis</th><th>Situação</th><th class="acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="alunosCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="alunosTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── RESPONSÁVEIS ─────────── -->
+    <section class="pagina" id="pagina-responsaveis">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Responsáveis</h1>
+          <p class="pagina-sub">Pais e responsáveis, contatos e acesso ao aplicativo</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-ghost" onclick="Relatorios.imprimirContatos()">🖨️ Agenda de contatos</button>
+          <button class="btn btn-primary" onclick="Responsaveis.abrirNovo()">＋ Novo responsável</button>
+        </div>
+      </div>
+
+      <div class="filtros">
+        <div class="campo busca">
+          <label>Buscar</label>
+          <input type="text" class="form-input" id="respBusca" placeholder="Nome, CPF, telefone ou e-mail…">
+        </div>
+        <div class="campo">
+          <label>Situação</label>
+          <select class="form-select" id="respAtivo" style="min-width:150px">
+            <option value="">Todos</option>
+            <option value="1" selected>Ativos</option>
+            <option value="0">Inativos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Responsável</th><th>CPF</th><th>Contato</th>
+                <th>Alunos</th><th>App</th><th class="acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="respCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="respTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── TURMAS ─────────── -->
+    <section class="pagina" id="pagina-turmas">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Turmas</h1>
+          <p class="pagina-sub">Organização das turmas por ano letivo e turno</p>
+        </div>
+        <div class="pagina-acoes">
+          <select class="form-select" id="turmasAno" onchange="Turmas.carregar()" style="min-width:130px"></select>
+          <button class="btn btn-primary" onclick="Turmas.abrirNovo()">＋ Nova turma</button>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Turma</th><th>Etapa / Série</th><th>Turno</th><th>Sala</th>
+                <th>Professor</th><th>Ocupação</th><th class="acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="turmasCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="turmasTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── FUNCIONÁRIOS ─────────── -->
+    <section class="pagina" id="pagina-funcionarios">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Funcionários</h1>
+          <p class="pagina-sub">Quadro de pessoal, cargos e dados funcionais</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-ghost" onclick="Relatorios.imprimirFuncionarios()">🖨️ Imprimir quadro</button>
+          <button class="btn btn-primary" onclick="Funcionarios.abrirNovo()">＋ Novo funcionário</button>
+        </div>
+      </div>
+
+      <div class="filtros">
+        <div class="campo busca">
+          <label>Buscar</label>
+          <input type="text" class="form-input" id="funcBusca" placeholder="Nome, matrícula, CPF ou cargo…">
+        </div>
+        <div class="campo">
+          <label>Setor</label>
+          <select class="form-select" id="funcSetor" style="min-width:170px"><option value="">Todos</option></select>
+        </div>
+        <div class="campo">
+          <label>Situação</label>
+          <select class="form-select" id="funcAtivo" style="min-width:150px">
+            <option value="">Todos</option>
+            <option value="1" selected>Ativos</option>
+            <option value="0">Desligados</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Funcionário</th><th>Matrícula</th><th>Cargo</th><th>Setor</th>
+                <th>Admissão</th><th>Contato</th><th>Situação</th><th class="acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="funcCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="funcTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── OCORRÊNCIAS ─────────── -->
+    <section class="pagina" id="pagina-ocorrencias">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Ocorrências</h1>
+          <p class="pagina-sub">Histórico do aluno: faltas relevantes, acidentes, incidentes e atendimentos</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-primary" onclick="Ocorrencias.abrirNova()">＋ Nova ocorrência</button>
+        </div>
+      </div>
+
+      <div class="filtros">
+        <div class="campo busca">
+          <label>Aluno</label>
+          <select class="form-select" id="ocorrAluno"><option value="">Todos os alunos</option></select>
+        </div>
+        <div class="campo">
+          <label>Turma</label>
+          <select class="form-select" id="ocorrTurma" style="min-width:170px"><option value="">Todas</option></select>
+        </div>
+        <div class="campo">
+          <label>Tipo</label>
+          <select class="form-select" id="ocorrTipo" style="min-width:170px"><option value="">Todos</option></select>
+        </div>
+        <div class="campo">
+          <label>Gravidade</label>
+          <select class="form-select" id="ocorrGravidade" style="min-width:140px">
+            <option value="">Todas</option>
+            <option value="informativa">Informativa</option>
+            <option value="atencao">Atenção</option>
+            <option value="grave">Grave</option>
+          </select>
+        </div>
+        <div class="campo"><label>De</label><input type="date" class="form-input" id="ocorrDe"></div>
+        <div class="campo"><label>Até</label><input type="date" class="form-input" id="ocorrAte"></div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr><th>Data</th><th>Aluno</th><th>Tipo</th><th>Ocorrência</th><th>Gravidade</th><th>Compartilhada</th><th>Registrou</th><th class="acoes">Ações</th></tr>
+            </thead>
+            <tbody id="ocorrCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="ocorrTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── MENSAGENS ─────────── -->
+    <section class="pagina" id="pagina-mensagens">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Mensagens</h1>
+          <p class="pagina-sub">Comunicados enviados ao aplicativo dos responsáveis, com leitura e ciência</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-primary" onclick="Mensagens.abrirNova()">✉️ Nova mensagem</button>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr><th>Enviada em</th><th>Título</th><th>Tipo</th><th>Público</th><th>Leitura</th><th>Ciência</th><th class="acoes">Ações</th></tr>
+            </thead>
+            <tbody id="msgCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="msgTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── FINANCEIRO ─────────── -->
+    <section class="pagina" id="pagina-financeiro">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Financeiro</h1>
+          <p class="pagina-sub">Planos, contratos, mensalidades e recebimentos</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-ghost" onclick="Financeiro.abrirPlanos()">⚙️ Planos</button>
+          <button class="btn btn-ghost" onclick="Financeiro.abrirContrato()">📄 Novo contrato</button>
+          <button class="btn btn-primary" onclick="Financeiro.abrirCobranca()">＋ Cobrança avulsa</button>
+        </div>
+      </div>
+
+      <div class="abas" id="finAbas">
+        <button class="aba active" data-finaba="resumo">Resumo</button>
+        <button class="aba" data-finaba="parcelas">Mensalidades</button>
+        <button class="aba" data-finaba="contratos">Contratos</button>
+      </div>
+
+      <div class="aba-conteudo active" id="finaba-resumo">
+        <div id="finResumo"><div class="vazio"><span class="spinner"></span></div></div>
+      </div>
+
+      <div class="aba-conteudo" id="finaba-parcelas">
+        <div class="filtros">
+          <div class="campo busca">
+            <label>Aluno</label>
+            <select class="form-select" id="finAluno"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label>Turma</label>
+            <select class="form-select" id="finTurma" style="min-width:170px"><option value="">Todas</option></select>
+          </div>
+          <div class="campo">
+            <label>Situação</label>
+            <select class="form-select" id="finSituacao" style="min-width:150px">
+              <option value="">Todas</option>
+              <option value="vencida">Vencidas</option>
+              <option value="aberta">Em aberto</option>
+              <option value="paga">Pagas</option>
+            </select>
+          </div>
+          <div class="campo"><label>Vence de</label><input type="date" class="form-input" id="finDe"></div>
+          <div class="campo"><label>até</label><input type="date" class="form-input" id="finAte"></div>
+        </div>
+
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Aluno</th><th>Competência</th><th>Descrição</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Saldo</th><th>Situação</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="finCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="finTotal">—</span></div>
+        </div>
+      </div>
+
+      <div class="aba-conteudo" id="finaba-contratos">
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Aluno</th><th>Turma</th><th>Plano</th><th>Mensalidade</th><th>Desconto</th><th>Responsável financeiro</th><th>Parcelas</th><th>Status</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="finContratosCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="finContratosTotal">—</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── RELATÓRIOS ─────────── -->
+    <section class="pagina" id="pagina-relatorios">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Relatórios</h1>
+          <p class="pagina-sub">Documentos com o timbre da escola, prontos para impressão</p>
+        </div>
+      </div>
+      <div id="relatoriosLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))"></div>
+    </section>
+
+    <!-- ─────────── USUÁRIOS ─────────── -->
+    <section class="pagina" id="pagina-usuarios">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Usuários</h1>
+          <p class="pagina-sub">Acessos de funcionários ao sistema e de responsáveis ao aplicativo</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-primary" onclick="Usuarios.abrirNovo()">＋ Novo acesso</button>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Usuário</th><th>Login</th><th>Tipo</th><th>Perfil</th>
+                <th>Último acesso</th><th>Situação</th><th class="acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="usuariosCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="usuariosTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── PERFIS ─────────── -->
+    <section class="pagina" id="pagina-perfis">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Perfis de Acesso</h1>
+          <p class="pagina-sub">Defina quais módulos cada função enxerga no sistema</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-primary" onclick="Perfis.abrirNovo()">＋ Novo perfil</button>
+        </div>
+      </div>
+      <div id="perfisLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(290px,1fr))"></div>
+    </section>
+
+    <!-- ─────────── CONFIGURAÇÕES ─────────── -->
+    <section class="pagina" id="pagina-configuracoes">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Configurações</h1>
+          <p class="pagina-sub">Dados institucionais usados nos relatórios e no login</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-primary" onclick="Configuracoes.salvar()">💾 Salvar</button>
+        </div>
+      </div>
+
+      <div class="card card-p" id="formEscola" style="max-width:920px">
+        <div class="secao-titulo">Identificação</div>
+        <div class="form-grid">
+          <div class="form-group col-2">
+            <label class="form-label">Nome fantasia <span class="req">*</span></label>
+            <input class="form-input" data-campo="nome_fantasia">
+          </div>
+          <div class="form-group col-2">
+            <label class="form-label">Razão social</label>
+            <input class="form-input" data-campo="razao_social">
+          </div>
+          <div class="form-group">
+            <label class="form-label">CNPJ</label>
+            <input class="form-input" data-campo="cnpj" data-mascara="cnpj">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Código INEP</label>
+            <input class="form-input" data-campo="inep">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Diretor(a)</label>
+            <input class="form-input" data-campo="diretor">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ano letivo</label>
+            <input class="form-input" data-campo="ano_letivo" type="number" min="2000" max="2100">
+          </div>
+        </div>
+
+        <div class="secao-titulo">Contato</div>
+        <div class="form-grid3">
+          <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" data-campo="telefone" data-mascara="telefone"></div>
+          <div class="form-group"><label class="form-label">WhatsApp</label><input class="form-input" data-campo="whatsapp" data-mascara="telefone"></div>
+          <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" data-campo="email" type="email"></div>
+        </div>
+
+        <div class="secao-titulo">Endereço</div>
+        <div class="form-grid4">
+          <div class="form-group">
+            <label class="form-label">CEP</label>
+            <input class="form-input" data-campo="cep" data-mascara="cep" onblur="buscarCep(this.value,'formEscola')">
+          </div>
+          <div class="form-group col-2"><label class="form-label">Logradouro</label><input class="form-input" data-campo="logradouro"></div>
+          <div class="form-group"><label class="form-label">Número</label><input class="form-input" data-campo="numero"></div>
+          <div class="form-group"><label class="form-label">Complemento</label><input class="form-input" data-campo="complemento"></div>
+          <div class="form-group"><label class="form-label">Bairro</label><input class="form-input" data-campo="bairro"></div>
+          <div class="form-group"><label class="form-label">Cidade</label><input class="form-input" data-campo="cidade"></div>
+          <div class="form-group"><label class="form-label">UF</label><input class="form-input" data-campo="estado" maxlength="2" style="text-transform:uppercase"></div>
+        </div>
+
+        <div class="secao-titulo">Identidade visual</div>
+        <div class="form-grid" style="align-items:center">
+          <div class="form-group">
+            <label class="form-label">Caminho do logotipo</label>
+            <input class="form-input" data-campo="logo_url">
+            <div class="form-hint">Usado no login, no menu e no cabeçalho dos relatórios.</div>
+          </div>
+          <div style="text-align:center">
+            <img src="/img/LogoMilezi.jpg" id="previewLogo" alt="Logo"
+                 style="width:110px;height:110px;object-fit:contain;background:#fff;border-radius:16px;padding:6px;box-shadow:0 0 0 1px var(--border)">
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════════════════ MODAIS ══════════════════════ -->
+
+<!-- Aluno -->
+<div class="modal-overlay" id="modalAluno">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div>
+        <h3 id="modalAlunoTitulo">Novo aluno</h3>
+        <div class="sub" id="modalAlunoSub">Preencha a ficha de matrícula</div>
+      </div>
+      <button class="btn-ico" onclick="fecharModal('modalAluno')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="abas">
+        <button class="aba active" data-aba="al-dados">1 · Dados pessoais</button>
+        <button class="aba" data-aba="al-resp">2 · Responsáveis</button>
+        <button class="aba" data-aba="al-escolar">3 · Vida escolar</button>
+        <button class="aba" data-aba="al-endereco">4 · Endereço</button>
+        <button class="aba" data-aba="al-saude">5 · Saúde e documentos</button>
+      </div>
+
+      <div id="formAluno">
+        <div class="aba-conteudo active" id="aba-al-dados">
+          <div class="form-grid3">
+            <div class="form-group col-2"><label class="form-label">Nome completo <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+            <div class="form-group"><label class="form-label">Matrícula</label><input class="form-input" data-campo="matricula" placeholder="Gerada automaticamente"></div>
+            <div class="form-group col-2"><label class="form-label">Nome social</label><input class="form-input" data-campo="nome_social"></div>
+            <div class="form-group"><label class="form-label">Data de nascimento</label><input class="form-input" type="date" data-campo="data_nascimento"></div>
+            <div class="form-group">
+              <label class="form-label">Sexo</label>
+              <select class="form-select" data-campo="sexo"><option value="">—</option><option value="F">Feminino</option><option value="M">Masculino</option><option value="O">Outro</option></select>
+            </div>
+            <div class="form-group"><label class="form-label">CPF</label><input class="form-input" data-campo="cpf" data-mascara="cpf"></div>
+            <div class="form-group"><label class="form-label">RG</label><input class="form-input" data-campo="rg"></div>
+            <div class="form-group"><label class="form-label">Certidão de nascimento</label><input class="form-input" data-campo="certidao_nascimento"></div>
+            <div class="form-group"><label class="form-label">NIS</label><input class="form-input" data-campo="nis"></div>
+            <div class="form-group">
+              <label class="form-label">Nacionalidade</label>
+              <select class="form-select" data-campo="nacionalidade" id="alunoNacionalidade" onchange="Alunos.trocarNacionalidade()">
+                <option value="Brasileira">Brasileira</option>
+                <option value="Estrangeira">Estrangeira</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Naturalidade <span id="alunoNatDica" class="c-txt3" style="text-transform:none;font-weight:400"></span></label>
+              <input class="form-input" data-campo="naturalidade" id="alunoNaturalidade"
+                     list="listaMunicipios" autocomplete="off" placeholder="Cidade de nascimento">
+              <datalist id="listaMunicipios"></datalist>
+            </div>
+            <div class="form-group">
+              <label class="form-label">UF nascimento</label>
+              <input class="form-input" data-campo="uf_nascimento" id="alunoUfNascimento" maxlength="2" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cor / raça</label>
+              <select class="form-select" data-campo="cor_raca">
+                <option value="">—</option><option>Branca</option><option>Preta</option><option>Parda</option><option>Amarela</option><option>Indígena</option><option>Não declarada</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-al-escolar">
+          <div class="form-grid3">
+            <div class="form-group"><label class="form-label">Turma</label><select class="form-select" data-campo="turma_id" id="alunoTurmaSelect"><option value="">Sem turma</option></select></div>
+            <div class="form-group"><label class="form-label">Ano letivo</label><input class="form-input" type="number" data-campo="ano_letivo" min="2000" max="2100"></div>
+            <div class="form-group">
+              <label class="form-label">Turno</label>
+              <select class="form-select" data-campo="turno"><option value="">—</option><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="integral">Integral</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Situação <span class="req">*</span></label>
+              <select class="form-select" data-campo="situacao">
+                <option value="matriculado">Matriculado</option>
+                <option value="pre_matricula">Pré-matrícula</option>
+                <option value="transferido">Transferido</option>
+                <option value="trancado">Trancado</option>
+                <option value="desistente">Desistente</option>
+                <option value="egresso">Egresso</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Data da matrícula</label><input class="form-input" type="date" data-campo="data_matricula"></div>
+            <div class="form-group"><label class="form-label">Data de saída</label><input class="form-input" type="date" data-campo="data_saida"></div>
+            <div class="form-group col-3"><label class="form-label">Escola anterior</label><input class="form-input" data-campo="escola_anterior"></div>
+            <div class="form-group col-3"><label class="form-label">Observações</label><textarea class="form-textarea" data-campo="observacoes"></textarea></div>
+          </div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-al-endereco">
+          <div id="alunoEnderecoResp" class="card card-p mb-4" style="padding:14px 16px;display:none">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <span style="font-size:19px">🏠</span>
+              <div style="flex:1;min-width:200px">
+                <div style="font-size:13px;font-weight:600">Usar o endereço de um responsável</div>
+                <div style="font-size:11.5px;color:var(--txt2)">Copia logradouro, número, bairro, cidade, UF e CEP.</div>
+              </div>
+              <select class="form-select" id="alunoCopiarDe" style="min-width:190px;max-width:240px"></select>
+              <button class="btn btn-ghost btn-sm" onclick="Alunos.copiarEnderecoResponsavel()">📋 Copiar endereço</button>
+            </div>
+          </div>
+          <div class="form-grid4">
+            <div class="form-group"><label class="form-label">CEP</label><input class="form-input" data-campo="cep" data-mascara="cep" onblur="buscarCep(this.value,'formAluno')"></div>
+            <div class="form-group col-2"><label class="form-label">Logradouro</label><input class="form-input" data-campo="logradouro"></div>
+            <div class="form-group"><label class="form-label">Número</label><input class="form-input" data-campo="numero"></div>
+            <div class="form-group"><label class="form-label">Complemento</label><input class="form-input" data-campo="complemento"></div>
+            <div class="form-group"><label class="form-label">Bairro</label><input class="form-input" data-campo="bairro"></div>
+            <div class="form-group"><label class="form-label">Cidade</label><input class="form-input" data-campo="cidade"></div>
+            <div class="form-group"><label class="form-label">UF</label><input class="form-input" data-campo="estado" maxlength="2" style="text-transform:uppercase"></div>
+          </div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-al-saude">
+          <div class="form-grid3">
+            <div class="form-group">
+              <label class="form-label">Tipo sanguíneo</label>
+              <select class="form-select" data-campo="tipo_sanguineo">
+                <option value="">—</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Plano de saúde</label><input class="form-input" data-campo="plano_saude"></div>
+            <div class="form-group"><label class="form-label">Médico de referência</label><input class="form-input" data-campo="medico_referencia"></div>
+            <div class="form-group col-3"><label class="form-label">Alergias</label><textarea class="form-textarea" data-campo="alergias" style="min-height:58px"></textarea></div>
+            <div class="form-group col-3"><label class="form-label">Medicamentos de uso contínuo</label><textarea class="form-textarea" data-campo="medicamentos" style="min-height:58px"></textarea></div>
+            <div class="form-group col-3"><label class="form-label">Restrições alimentares</label><textarea class="form-textarea" data-campo="restricoes_alimentares" style="min-height:58px"></textarea></div>
+            <div class="form-group col-3"><label class="form-label">Necessidades especiais</label><textarea class="form-textarea" data-campo="necessidades_especiais" style="min-height:58px"></textarea></div>
+            <div class="form-group col-3"><label class="form-label">Laudo / CID</label><input class="form-input" data-campo="laudo"></div>
+            <div class="form-group"><label class="form-label">Contato de emergência</label><input class="form-input" data-campo="contato_emergencia"></div>
+            <div class="form-group"><label class="form-label">Telefone de emergência</label><input class="form-input" data-campo="telefone_emergencia" data-mascara="telefone"></div>
+          </div>
+          <div class="secao-titulo">Autorizações</div>
+          <div style="display:flex;gap:22px;flex-wrap:wrap">
+            <label class="form-check"><input type="checkbox" data-campo="autoriza_imagem"> Uso de imagem</label>
+            <label class="form-check"><input type="checkbox" data-campo="autoriza_medicamento"> Administrar medicamentos</label>
+            <label class="form-check"><input type="checkbox" data-campo="autoriza_passeio"> Passeios e saídas</label>
+          </div>
+
+          <div class="secao-titulo">Documentos digitalizados</div>
+          <div id="alunoAnexos"></div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-al-resp">
+          <div class="form-hint mb-3">
+            Todo aluno matriculado precisa de pelo menos um responsável. Se ainda não estiver cadastrado,
+            use <strong>Cadastrar novo</strong> — ao salvar, ele já volta vinculado aqui.
+          </div>
+          <div class="filtros" style="margin-bottom:12px">
+            <div class="campo busca">
+              <label>Responsável já cadastrado</label>
+              <select class="form-select" id="vincResponsavel"><option value="">Selecione…</option></select>
+            </div>
+            <div class="campo">
+              <label>Parentesco</label>
+              <select class="form-select" id="vincParentesco" style="min-width:165px"></select>
+            </div>
+            <div class="campo">
+              <label>Vínculo</label>
+              <select class="form-select" id="vincTipo" style="min-width:180px">
+                <option value="ambos">Financeiro e pedagógico</option>
+                <option value="financeiro">Financeiro</option>
+                <option value="pedagogico">Pedagógico</option>
+              </select>
+            </div>
+            <button class="btn btn-ghost" onclick="Alunos.adicionarVinculo()">🔗 Vincular</button>
+            <button class="btn btn-primary" onclick="Alunos.cadastrarResponsavel()">＋ Cadastrar novo</button>
+          </div>
+          <div class="tabela-wrap">
+            <table class="tabela">
+              <thead><tr><th>Responsável</th><th>Contato</th><th>Parentesco</th><th>Vínculo</th><th>Principal</th><th>Retirar</th><th class="acoes">Ações</th></tr></thead>
+              <tbody id="vincCorpo"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalAluno')">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarAluno" onclick="Alunos.salvar()">💾 Salvar aluno</button>
+    </div>
+  </div>
+</div>
+
+<!-- Responsável -->
+<div class="modal-overlay" id="modalResponsavel">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="modalRespTitulo">Novo responsável</h3><div class="sub" id="modalRespSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalResponsavel')">✕</button>
+    </div>
+    <div class="modal-body" id="formResponsavel">
+      <div class="secao-titulo">Dados pessoais</div>
+      <div class="form-grid3">
+        <div class="form-group col-2"><label class="form-label">Nome completo <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+        <div class="form-group"><label class="form-label">CPF</label><input class="form-input" data-campo="cpf" data-mascara="cpf"></div>
+        <div class="form-group"><label class="form-label">RG</label><input class="form-input" data-campo="rg"></div>
+        <div class="form-group"><label class="form-label">Data de nascimento</label><input class="form-input" type="date" data-campo="data_nascimento"></div>
+        <div class="form-group">
+          <label class="form-label">Estado civil</label>
+          <select class="form-select" data-campo="estado_civil">
+            <option value="">—</option><option>Solteiro(a)</option><option>Casado(a)</option><option>União estável</option><option>Divorciado(a)</option><option>Viúvo(a)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="secao-titulo">Contato</div>
+      <div class="form-grid3">
+        <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" data-campo="telefone" data-mascara="telefone"></div>
+        <div class="form-group"><label class="form-label">WhatsApp</label><input class="form-input" data-campo="whatsapp" data-mascara="telefone"></div>
+        <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" type="email" data-campo="email"></div>
+      </div>
+
+      <div class="secao-titulo">Endereço</div>
+      <div class="form-grid4">
+        <div class="form-group"><label class="form-label">CEP</label><input class="form-input" data-campo="cep" data-mascara="cep" onblur="buscarCep(this.value,'formResponsavel')"></div>
+        <div class="form-group col-2"><label class="form-label">Logradouro</label><input class="form-input" data-campo="logradouro"></div>
+        <div class="form-group"><label class="form-label">Número</label><input class="form-input" data-campo="numero"></div>
+        <div class="form-group"><label class="form-label">Complemento</label><input class="form-input" data-campo="complemento"></div>
+        <div class="form-group"><label class="form-label">Bairro</label><input class="form-input" data-campo="bairro"></div>
+        <div class="form-group"><label class="form-label">Cidade</label><input class="form-input" data-campo="cidade"></div>
+        <div class="form-group"><label class="form-label">UF</label><input class="form-input" data-campo="estado" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+
+      <div class="secao-titulo">Profissional</div>
+      <div class="form-grid3">
+        <div class="form-group"><label class="form-label">Profissão</label><input class="form-input" data-campo="profissao"></div>
+        <div class="form-group"><label class="form-label">Local de trabalho</label><input class="form-input" data-campo="local_trabalho"></div>
+        <div class="form-group"><label class="form-label">Telefone comercial</label><input class="form-input" data-campo="telefone_trabalho" data-mascara="telefone"></div>
+        <div class="form-group col-3"><label class="form-label">Observações</label><textarea class="form-textarea" data-campo="observacoes" style="min-height:60px"></textarea></div>
+        <div class="form-group"><label class="form-check" style="margin-top:26px"><input type="checkbox" data-campo="ativo" checked> Cadastro ativo</label></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalResponsavel')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Responsaveis.salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Funcionário -->
+<div class="modal-overlay" id="modalFuncionario">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div><h3 id="modalFuncTitulo">Novo funcionário</h3></div>
+      <button class="btn-ico" onclick="fecharModal('modalFuncionario')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="abas">
+        <button class="aba active" data-aba="fn-dados">Dados pessoais</button>
+        <button class="aba" data-aba="fn-func">Dados funcionais</button>
+        <button class="aba" data-aba="fn-endereco">Endereço</button>
+        <button class="aba" data-aba="fn-banco">Documentos e banco</button>
+      </div>
+
+      <div id="formFuncionario">
+        <div class="aba-conteudo active" id="aba-fn-dados">
+          <div class="form-grid3">
+            <div class="form-group col-2"><label class="form-label">Nome completo <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+            <div class="form-group"><label class="form-label">Matrícula</label><input class="form-input" data-campo="matricula" placeholder="Gerada automaticamente"></div>
+            <div class="form-group"><label class="form-label">CPF</label><input class="form-input" data-campo="cpf" data-mascara="cpf"></div>
+            <div class="form-group"><label class="form-label">RG</label><input class="form-input" data-campo="rg"></div>
+            <div class="form-group"><label class="form-label">Órgão expedidor</label><input class="form-input" data-campo="orgao_expedidor"></div>
+            <div class="form-group"><label class="form-label">Data de nascimento</label><input class="form-input" type="date" data-campo="data_nascimento"></div>
+            <div class="form-group">
+              <label class="form-label">Sexo</label>
+              <select class="form-select" data-campo="sexo"><option value="">—</option><option value="F">Feminino</option><option value="M">Masculino</option><option value="O">Outro</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Estado civil</label>
+              <select class="form-select" data-campo="estado_civil">
+                <option value="">—</option><option>Solteiro(a)</option><option>Casado(a)</option><option>União estável</option><option>Divorciado(a)</option><option>Viúvo(a)</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" data-campo="telefone" data-mascara="telefone"></div>
+            <div class="form-group"><label class="form-label">WhatsApp</label><input class="form-input" data-campo="whatsapp" data-mascara="telefone"></div>
+            <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" type="email" data-campo="email"></div>
+            <div class="form-group"><label class="form-label">Contato de emergência</label><input class="form-input" data-campo="contato_emergencia"></div>
+            <div class="form-group"><label class="form-label">Telefone de emergência</label><input class="form-input" data-campo="telefone_emergencia" data-mascara="telefone"></div>
+          </div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-fn-func">
+          <div class="form-grid3">
+            <div class="form-group">
+              <label class="form-label">Cargo <span class="req">*</span></label>
+              <input class="form-input" data-campo="cargo" list="listaCargos">
+              <datalist id="listaCargos">
+                <option>Professor(a)</option><option>Auxiliar de sala</option><option>Coordenador(a) Pedagógico(a)</option>
+                <option>Diretor(a)</option><option>Secretário(a)</option><option>Recepcionista</option>
+                <option>Auxiliar de Serviços Gerais</option><option>Cozinheiro(a)</option><option>Porteiro</option>
+                <option>Psicopedagogo(a)</option><option>Estagiário(a)</option>
+              </datalist>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Setor</label>
+              <select class="form-select" data-campo="setor">
+                <option value="">—</option><option>Pedagógico</option><option>Administrativo</option><option>Secretaria</option>
+                <option>Direção</option><option>Serviços Gerais</option><option>Cozinha</option><option>Portaria</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo de contrato</label>
+              <select class="form-select" data-campo="tipo_contrato">
+                <option value="clt">CLT</option><option value="pj">PJ</option><option value="estagio">Estágio</option>
+                <option value="temporario">Temporário</option><option value="autonomo">Autônomo</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Data de admissão</label><input class="form-input" type="date" data-campo="data_admissao"></div>
+            <div class="form-group"><label class="form-label">Data de desligamento</label><input class="form-input" type="date" data-campo="data_demissao"></div>
+            <div class="form-group"><label class="form-label">Salário (R$)</label><input class="form-input" data-campo="salario" placeholder="0,00"></div>
+            <div class="form-group"><label class="form-label">Carga horária</label><input class="form-input" data-campo="carga_horaria" placeholder="40h semanais"></div>
+            <div class="form-group">
+              <label class="form-label">Turno</label>
+              <select class="form-select" data-campo="turno"><option value="">—</option><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="integral">Integral</option><option value="noite">Noite</option></select>
+            </div>
+            <div class="form-group"><label class="form-check" style="margin-top:26px"><input type="checkbox" data-campo="ativo" checked> Funcionário ativo</label></div>
+            <div class="form-group col-3"><label class="form-label">Formação</label><input class="form-input" data-campo="formacao"></div>
+            <div class="form-group col-3"><label class="form-label">Especialização</label><input class="form-input" data-campo="especializacao"></div>
+            <div class="form-group col-3"><label class="form-label">Observações</label><textarea class="form-textarea" data-campo="observacoes" style="min-height:60px"></textarea></div>
+          </div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-fn-endereco">
+          <div class="form-grid4">
+            <div class="form-group"><label class="form-label">CEP</label><input class="form-input" data-campo="cep" data-mascara="cep" onblur="buscarCep(this.value,'formFuncionario')"></div>
+            <div class="form-group col-2"><label class="form-label">Logradouro</label><input class="form-input" data-campo="logradouro"></div>
+            <div class="form-group"><label class="form-label">Número</label><input class="form-input" data-campo="numero"></div>
+            <div class="form-group"><label class="form-label">Complemento</label><input class="form-input" data-campo="complemento"></div>
+            <div class="form-group"><label class="form-label">Bairro</label><input class="form-input" data-campo="bairro"></div>
+            <div class="form-group"><label class="form-label">Cidade</label><input class="form-input" data-campo="cidade"></div>
+            <div class="form-group"><label class="form-label">UF</label><input class="form-input" data-campo="estado" maxlength="2" style="text-transform:uppercase"></div>
+          </div>
+        </div>
+
+        <div class="aba-conteudo" id="aba-fn-banco">
+          <div class="form-grid3">
+            <div class="form-group"><label class="form-label">PIS/PASEP</label><input class="form-input" data-campo="pis"></div>
+            <div class="form-group"><label class="form-label">CTPS</label><input class="form-input" data-campo="ctps"></div>
+            <div class="form-group"><label class="form-label">Chave PIX</label><input class="form-input" data-campo="pix"></div>
+            <div class="form-group"><label class="form-label">Banco</label><input class="form-input" data-campo="banco"></div>
+            <div class="form-group"><label class="form-label">Agência</label><input class="form-input" data-campo="agencia"></div>
+            <div class="form-group"><label class="form-label">Conta</label><input class="form-input" data-campo="conta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalFuncionario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Funcionarios.salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Turma -->
+<div class="modal-overlay" id="modalTurma">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="modalTurmaTitulo">Nova turma</h3></div>
+      <button class="btn-ico" onclick="fecharModal('modalTurma')">✕</button>
+    </div>
+    <div class="modal-body" id="formTurma">
+      <div class="form-grid">
+        <div class="form-group col-2"><label class="form-label">Nome da turma <span class="req">*</span></label><input class="form-input" data-campo="nome" placeholder="Ex.: Maternal II — A"></div>
+        <div class="form-group">
+          <label class="form-label">Etapa</label>
+          <select class="form-select" data-campo="etapa">
+            <option value="">—</option><option>Berçário</option><option>Maternal</option><option>Pré-escola</option><option>Fundamental I</option><option>Fundamental II</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Série</label><input class="form-input" data-campo="serie" placeholder="Ex.: 1º ano"></div>
+        <div class="form-group">
+          <label class="form-label">Turno <span class="req">*</span></label>
+          <select class="form-select" data-campo="turno"><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="integral">Integral</option><option value="noite">Noite</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Ano letivo <span class="req">*</span></label><input class="form-input" type="number" data-campo="ano_letivo" min="2000" max="2100"></div>
+        <div class="form-group"><label class="form-label">Sala</label><input class="form-input" data-campo="sala"></div>
+        <div class="form-group"><label class="form-label">Capacidade</label><input class="form-input" type="number" data-campo="capacidade" min="1"></div>
+        <div class="form-group"><label class="form-label">Professor(a)</label><select class="form-select" data-campo="professor_id" id="turmaProfessor"><option value="">—</option></select></div>
+        <div class="form-group"><label class="form-label">Auxiliar</label><select class="form-select" data-campo="auxiliar_id" id="turmaAuxiliar"><option value="">—</option></select></div>
+        <div class="form-group col-2"><label class="form-check"><input type="checkbox" data-campo="ativa" checked> Turma ativa</label></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalTurma')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Turmas.salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Usuário -->
+<div class="modal-overlay" id="modalUsuario">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="modalUsuarioTitulo">Novo acesso</h3></div>
+      <button class="btn-ico" onclick="fecharModal('modalUsuario')">✕</button>
+    </div>
+    <div class="modal-body" id="formUsuario">
+      <div class="form-group">
+        <label class="form-label">Tipo de acesso <span class="req">*</span></label>
+        <select class="form-select" id="usuarioTipo" onchange="Usuarios.trocarTipo()">
+          <option value="funcionario">Funcionário — sistema completo</option>
+          <option value="responsavel">Responsável — apenas o aplicativo</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="grupoFuncionario">
+        <label class="form-label">Funcionário vinculado</label>
+        <select class="form-select" id="usuarioFuncionario" onchange="Usuarios.preencherPorPessoa('funcionario')"><option value="">— Não vincular —</option></select>
+      </div>
+
+      <div class="form-group oculto" id="grupoResponsavel">
+        <label class="form-label">Responsável vinculado <span class="req">*</span></label>
+        <select class="form-select" id="usuarioResponsavel" onchange="Usuarios.preencherPorPessoa('responsavel')"><option value="">Selecione…</option></select>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group col-2"><label class="form-label">Nome exibido <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+        <div class="form-group"><label class="form-label">Login <span class="req">*</span></label><input class="form-input" data-campo="login" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" type="email" data-campo="email"></div>
+      </div>
+
+      <div class="form-group" id="grupoPerfil">
+        <label class="form-label">Perfil de acesso <span class="req">*</span></label>
+        <select class="form-select" id="usuarioPerfil"></select>
+      </div>
+
+      <div class="form-group" id="grupoSenha">
+        <label class="form-label">Senha provisória <span class="req">*</span></label>
+        <input class="form-input" type="text" id="usuarioSenha" autocomplete="new-password">
+        <div class="form-hint">O usuário será orientado a trocar a senha no primeiro acesso.</div>
+      </div>
+
+      <div class="form-group"><label class="form-check"><input type="checkbox" id="usuarioAtivo" checked> Acesso ativo</label></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalUsuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Usuarios.salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Perfil -->
+<div class="modal-overlay" id="modalPerfil">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="modalPerfilTitulo">Novo perfil</h3></div>
+      <button class="btn-ico" onclick="fecharModal('modalPerfil')">✕</button>
+    </div>
+    <div class="modal-body" id="formPerfil">
+      <div class="form-group"><label class="form-label">Nome do perfil <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+      <div class="form-group"><label class="form-label">Descrição</label><input class="form-input" data-campo="descricao"></div>
+      <div class="secao-titulo">Módulos liberados</div>
+      <div id="perfilPaginas"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalPerfil')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Perfis.salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trocar senha -->
+<div class="modal-overlay" id="modalSenha">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <div><h3>Trocar senha</h3></div>
+      <button class="btn-ico" onclick="fecharModal('modalSenha')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Senha atual</label><input class="form-input" type="password" id="senhaAtual"></div>
+      <div class="form-group"><label class="form-label">Nova senha</label><input class="form-input" type="password" id="senhaNova"></div>
+      <div class="form-group"><label class="form-label">Confirmar nova senha</label><input class="form-input" type="password" id="senhaConfirma"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalSenha')">Cancelar</button>
+      <button class="btn btn-primary" onclick="trocarSenha()">🔑 Trocar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ficha do aluno (visualização) -->
+<div class="modal-overlay" id="modalFicha">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="fichaTitulo">Ficha do aluno</h3><div class="sub" id="fichaSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalFicha')">✕</button>
+    </div>
+    <div class="modal-body" id="fichaCorpo"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalFicha')">Fechar</button>
+      <button class="btn btn-primary" id="btnImprimirFicha">🖨️ Imprimir ficha</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ocorrência -->
+<div class="modal-overlay" id="modalOcorrencia">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="modalOcorrTitulo">Nova ocorrência</h3><div class="sub" id="modalOcorrSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalOcorrencia')">✕</button>
+    </div>
+    <div class="modal-body" id="formOcorrencia">
+      <div class="form-grid3">
+        <div class="form-group col-2">
+          <label class="form-label">Aluno <span class="req">*</span></label>
+          <select class="form-select" data-campo="aluno_id" id="ocorrFormAluno"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo <span class="req">*</span></label>
+          <select class="form-select" data-campo="tipo" id="ocorrFormTipo" onchange="Ocorrencias.sugerirGravidade()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gravidade</label>
+          <select class="form-select" data-campo="gravidade">
+            <option value="informativa">Informativa</option>
+            <option value="atencao">Atenção</option>
+            <option value="grave">Grave</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Data <span class="req">*</span></label><input type="date" class="form-input" data-campo="data_ocorrencia"></div>
+        <div class="form-group"><label class="form-label">Hora</label><input type="time" class="form-input" data-campo="hora_ocorrencia"></div>
+        <div class="form-group col-3"><label class="form-label">Título <span class="req">*</span></label><input class="form-input" data-campo="titulo" placeholder="Ex.: Queda no parquinho"></div>
+        <div class="form-group col-3"><label class="form-label">Descrição</label><textarea class="form-textarea" data-campo="descricao" placeholder="O que aconteceu, como e com quem."></textarea></div>
+        <div class="form-group col-2"><label class="form-label">Local</label><input class="form-input" data-campo="local_ocorrencia"></div>
+        <div class="form-group col-3"><label class="form-label">Providências tomadas</label><textarea class="form-textarea" data-campo="providencia" style="min-height:60px"></textarea></div>
+      </div>
+
+      <div class="card card-p" style="padding:13px 16px;background:var(--surface)">
+        <label class="form-check">
+          <input type="checkbox" data-campo="visivel_responsavel">
+          <span><strong>Compartilhar com os responsáveis</strong><br>
+          <span class="form-hint" style="margin:0">Marcada, a ocorrência aparece no aplicativo dos pais com os anexos.</span></span>
+        </label>
+      </div>
+
+      <div class="secao-titulo">Fotos e documentos</div>
+      <div id="ocorrAnexos"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalOcorrencia')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Ocorrencias.salvar()">💾 Salvar ocorrência</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mensagem -->
+<div class="modal-overlay" id="modalMensagem">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3>Nova mensagem</h3><div class="sub">Enviada ao aplicativo dos responsáveis</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalMensagem')">✕</button>
+    </div>
+    <div class="modal-body" id="formMensagem">
+      <div class="form-grid">
+        <div class="form-group col-2"><label class="form-label">Título <span class="req">*</span></label><input class="form-input" data-campo="titulo"></div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" data-campo="tipo" id="msgTipo"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Público <span class="req">*</span></label>
+          <select class="form-select" id="msgAlvo" onchange="Mensagens.trocarAlvo()">
+            <option value="todos">Todos os responsáveis</option>
+            <option value="turma">Responsáveis de uma turma</option>
+            <option value="aluno">Responsáveis de um aluno</option>
+          </select>
+        </div>
+        <div class="form-group col-2 oculto" id="msgGrupoTurma">
+          <label class="form-label">Turma</label>
+          <select class="form-select" id="msgTurma"></select>
+        </div>
+        <div class="form-group col-2 oculto" id="msgGrupoAluno">
+          <label class="form-label">Aluno</label>
+          <select class="form-select" id="msgAluno"></select>
+        </div>
+        <div class="form-group col-2"><label class="form-label">Mensagem <span class="req">*</span></label><textarea class="form-textarea" data-campo="conteudo" style="min-height:130px"></textarea></div>
+      </div>
+      <div class="card card-p" style="padding:13px 16px;background:var(--surface)">
+        <label class="form-check">
+          <input type="checkbox" id="msgCiencia">
+          <span><strong>Exigir ciência</strong><br>
+          <span class="form-hint" style="margin:0">O responsável verá um botão "Estou ciente" e o sistema grava data e hora.</span></span>
+        </label>
+      </div>
+      <div class="form-hint mt-3" id="msgPrevia"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalMensagem')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Mensagens.salvar()">📨 Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detalhe da mensagem -->
+<div class="modal-overlay" id="modalMensagemDetalhe">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="msgDetTitulo">Mensagem</h3><div class="sub" id="msgDetSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalMensagemDetalhe')">✕</button>
+    </div>
+    <div class="modal-body" id="msgDetCorpo"></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="fecharModal('modalMensagemDetalhe')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Planos de pagamento -->
+<div class="modal-overlay" id="modalPlanos">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3>Planos de pagamento</h3><div class="sub">Valores base usados nos contratos dos alunos</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalPlanos')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid4" id="formPlano">
+        <div class="form-group col-2"><label class="form-label">Nome <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+        <div class="form-group"><label class="form-label">Mensalidade (R$)</label><input class="form-input" data-campo="valor_mensalidade" placeholder="0,00"></div>
+        <div class="form-group"><label class="form-label">Matrícula (R$)</label><input class="form-input" data-campo="taxa_matricula" placeholder="0,00"></div>
+        <div class="form-group"><label class="form-label">Parcelas</label><input type="number" class="form-input" data-campo="num_parcelas" min="1" max="12" value="12"></div>
+        <div class="form-group"><label class="form-label">Dia do vencimento</label><input type="number" class="form-input" data-campo="dia_vencimento" min="1" max="31" value="10"></div>
+        <div class="form-group col-2"><label class="form-label">Descrição</label><input class="form-input" data-campo="descricao"></div>
+        <div class="form-group col-4">
+          <button class="btn btn-primary" onclick="Financeiro.salvarPlano()" id="btnSalvarPlano">💾 Adicionar plano</button>
+          <button class="btn btn-ghost oculto" id="btnCancelarPlano" onclick="Financeiro.cancelarEdicaoPlano()">Cancelar edição</button>
+        </div>
+      </div>
+      <div class="secao-titulo">Planos cadastrados</div>
+      <div class="tabela-wrap">
+        <table class="tabela">
+          <thead><tr><th>Plano</th><th>Mensalidade</th><th>Parcelas</th><th>Venc.</th><th>Uso</th><th class="acoes"></th></tr></thead>
+          <tbody id="planosCorpo"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="fecharModal('modalPlanos')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Contrato financeiro -->
+<div class="modal-overlay" id="modalContrato">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="modalContratoTitulo">Novo contrato</h3><div class="sub">As parcelas são geradas automaticamente</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalContrato')">✕</button>
+    </div>
+    <div class="modal-body" id="formContrato">
+      <div class="form-grid">
+        <div class="form-group col-2">
+          <label class="form-label">Aluno <span class="req">*</span></label>
+          <select class="form-select" id="contratoAluno"></select>
+        </div>
+        <div class="form-group col-2">
+          <label class="form-label">Plano <span class="req">*</span></label>
+          <select class="form-select" id="contratoPlano" onchange="Financeiro.aplicarPlano()"></select>
+        </div>
+        <div class="form-group col-2">
+          <label class="form-label">Responsável financeiro</label>
+          <select class="form-select" id="contratoResponsavel"></select>
+          <div class="form-hint">Em branco: usa o responsável principal do aluno.</div>
+        </div>
+        <div class="form-group"><label class="form-label">Ano letivo</label><input type="number" class="form-input" data-campo="ano_letivo"></div>
+        <div class="form-group"><label class="form-label">Mensalidade (R$)</label><input class="form-input" data-campo="valor_mensalidade" placeholder="0,00"></div>
+        <div class="form-group"><label class="form-label">Desconto (%)</label><input class="form-input" data-campo="desconto_percentual" value="0"></div>
+        <div class="form-group"><label class="form-label">Bolsa (%)</label><input class="form-input" data-campo="bolsa_percentual" value="0"></div>
+        <div class="form-group"><label class="form-label">Parcelas</label><input type="number" class="form-input" data-campo="num_parcelas" min="1" max="12" value="12"></div>
+        <div class="form-group"><label class="form-label">Dia do vencimento</label><input type="number" class="form-input" data-campo="dia_vencimento" min="1" max="31" value="10"></div>
+        <div class="form-group">
+          <label class="form-label">Mês inicial</label>
+          <select class="form-select" data-campo="mes_inicio">
+            <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+            <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+            <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+            <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" data-campo="status">
+            <option value="ativo">Ativo</option><option value="encerrado">Encerrado</option><option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+        <div class="form-group col-2"><label class="form-label">Observações</label><input class="form-input" data-campo="observacoes"></div>
+      </div>
+      <div class="card card-p" style="padding:13px 16px;background:var(--surface)" id="contratoPrevia"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalContrato')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Financeiro.salvarContrato()">💾 Salvar e gerar parcelas</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cobrança avulsa -->
+<div class="modal-overlay" id="modalCobranca">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3>Cobrança avulsa</h3><div class="sub">Material, uniforme, passeio, segunda via…</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalCobranca')">✕</button>
+    </div>
+    <div class="modal-body" id="formCobranca">
+      <div class="form-group">
+        <label class="form-label">Aluno <span class="req">*</span></label>
+        <select class="form-select" id="cobrancaAluno"></select>
+      </div>
+      <div class="form-grid">
+        <div class="form-group col-2"><label class="form-label">Descrição <span class="req">*</span></label><input class="form-input" data-campo="descricao"></div>
+        <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" data-campo="valor_original" placeholder="0,00"></div>
+        <div class="form-group"><label class="form-label">Vencimento <span class="req">*</span></label><input type="date" class="form-input" data-campo="vencimento"></div>
+        <div class="form-group col-2"><label class="form-label">Observações</label><input class="form-input" data-campo="observacoes"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalCobranca')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Financeiro.salvarCobranca()">💾 Lançar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Baixa de pagamento -->
+<div class="modal-overlay" id="modalBaixa">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <div><h3>Registrar pagamento</h3><div class="sub" id="baixaSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalBaixa')">✕</button>
+    </div>
+    <div class="modal-body" id="formBaixa">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" data-campo="valor"></div>
+        <div class="form-group"><label class="form-label">Data <span class="req">*</span></label><input type="date" class="form-input" data-campo="data_pagamento"></div>
+        <div class="form-group col-2">
+          <label class="form-label">Forma de pagamento</label>
+          <select class="form-select" data-campo="forma">
+            <option value="dinheiro">Dinheiro</option><option value="pix">PIX</option>
+            <option value="transferencia">Transferência</option><option value="cartao_credito">Cartão de crédito</option>
+            <option value="cartao_debito">Cartão de débito</option><option value="boleto">Boleto</option><option value="cheque">Cheque</option>
+          </select>
+        </div>
+        <div class="form-group col-2"><label class="form-label">Observações</label><input class="form-input" data-campo="observacoes"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalBaixa')">Cancelar</button>
+      <button class="btn btn-green" onclick="Financeiro.confirmarBaixa()">✅ Confirmar pagamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Extrato financeiro do aluno -->
+<div class="modal-overlay" id="modalExtrato">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div><h3 id="extratoTitulo">Extrato do aluno</h3><div class="sub" id="extratoSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalExtrato')">✕</button>
+    </div>
+    <div class="modal-body" id="extratoCorpo"></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="fecharModal('modalExtrato')">Fechar</button></div>
+  </div>
+</div>
+
+<script src="/js/core.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/alunos.js"></script>
+<script src="/js/responsaveis.js"></script>
+<script src="/js/funcionarios.js"></script>
+<script src="/js/turmas.js"></script>
+<script src="/js/usuarios.js"></script>
+<script src="/js/configuracoes.js"></script>
+<script src="/js/relatorios.js"></script>
+<script src="/js/ocorrencias.js"></script>
+<script src="/js/mensagens.js"></script>
+<script src="/js/financeiro.js"></script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEM — Centro Educacional Milezi</title>
+  <meta name="theme-color" content="#F2B705">
+  <link rel="icon" href="/img/LogoMilezi.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <style>
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px;
+      background:
+        radial-gradient(1000px 520px at 12% -8%,  rgba(242,183,5,.16), transparent 62%),
+        radial-gradient(760px 420px at 108% 108%, rgba(242,166,166,.10), transparent 60%),
+        var(--bg);
+    }
+
+    .login-wrap { width: 100%; max-width: 410px; animation: fadeUp .4s ease; }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 38px 34px 32px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.42);
+    }
+
+    .marca { text-align: center; margin-bottom: 28px; }
+    .marca img {
+      width: 108px; height: 108px;
+      border-radius: 50%; background: #fff; padding: 5px;
+      object-fit: contain;
+      box-shadow: 0 0 0 1px var(--border), 0 12px 34px rgba(242,183,5,.26);
+    }
+    .marca h1 {
+      font-size: 19px; font-weight: 700; margin-top: 16px; letter-spacing: .01em;
+    }
+    .marca .linha {
+      width: 46px; height: 3px; border-radius: 2px;
+      background: var(--grad-gold); margin: 11px auto 9px;
+    }
+    .marca p {
+      font-size: 11.5px; color: var(--txt2);
+      text-transform: uppercase; letter-spacing: .16em;
+    }
+
+    .campo { margin-bottom: 16px; }
+    .campo label {
+      display: block; font-size: 10.5px; font-weight: 700;
+      color: var(--txt2); text-transform: uppercase; letter-spacing: .1em;
+      margin-bottom: 7px;
+    }
+    .campo input {
+      width: 100%; background: var(--surface); color: var(--txt);
+      border: 1px solid var(--border); border-radius: 11px;
+      padding: 12px 14px; font-size: 14px; font-family: var(--font);
+      outline: none; transition: border-color .18s, box-shadow .18s;
+    }
+    .campo input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-soft);
+    }
+
+    .btn-entrar {
+      width: 100%; margin-top: 6px;
+      background: var(--grad-gold); color: #17191F;
+      border: none; border-radius: 11px; padding: 13px;
+      font-family: var(--font); font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: filter .15s, transform .1s;
+    }
+    .btn-entrar:hover:not(:disabled) { filter: brightness(1.07); }
+    .btn-entrar:active:not(:disabled) { transform: scale(.99); }
+    .btn-entrar:disabled { opacity: .6; cursor: not-allowed; }
+
+    .erro {
+      display: none;
+      background: rgba(255,94,94,.11);
+      border: 1px solid rgba(255,94,94,.3);
+      color: var(--red);
+      border-radius: 10px; padding: 11px 14px;
+      font-size: 12.5px; margin-bottom: 16px;
+    }
+    .erro.mostrar { display: block; animation: fadeUp .2s ease; }
+
+    .rodape-links {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--txt2);
+    }
+    .rodape-links a { font-weight: 600; }
+
+    .versao { text-align: center; font-size: 11px; color: var(--txt3); margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="marca">
+        <img src="/img/LogoMilezi.jpg" alt="Centro Educacional Milezi" id="logoEscola">
+        <h1 id="nomeEscola">Centro Educacional Milezi</h1>
+        <div class="linha"></div>
+        <p>Sistema de Gestão Escolar</p>
+      </div>
+
+      <div class="erro" id="erroMsg"></div>
+
+      <div class="campo">
+        <label for="login">Usuário ou e-mail</label>
+        <input type="text" id="login" autocomplete="username" placeholder="Digite seu acesso" autofocus>
+      </div>
+
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" autocomplete="current-password" placeholder="Digite sua senha">
+      </div>
+
+      <button class="btn-entrar" id="btnEntrar" onclick="entrar()">Entrar</button>
+
+      <div class="rodape-links">
+        É pai ou responsável? <a href="/app">Acessar o aplicativo</a>
+      </div>
+    </div>
+    <p class="versao">CEM · ERP Escolar v1.0</p>
+  </div>
+
+  <script>
+    // Preenche nome e logo a partir das configurações da escola
+    fetch('/api/escola/publica')
+      .then(r => r.json())
+      .then(e => {
+        if (e.nome_fantasia) document.getElementById('nomeEscola').textContent = e.nome_fantasia;
+        if (e.logo_url) document.getElementById('logoEscola').src = e.logo_url;
+      })
+      .catch(() => {});
+
+    // Já autenticado? vai direto para o destino do perfil
+    (function () {
+      const token = sessionStorage.getItem('cem_token');
+      if (!token) return;
+      try {
+        const p = JSON.parse(atob(token.split('.')[1]));
+        if (p.exp * 1000 > Date.now()) {
+          window.location.href = p.tipo === 'responsavel' ? '/app' : '/sistema';
+          return;
+        }
+      } catch (e) {}
+      sessionStorage.removeItem('cem_token');
+      sessionStorage.removeItem('cem_usuario');
+    })();
+
+    document.getElementById('login').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('senha').focus();
+    });
+    document.getElementById('senha').addEventListener('keydown', e => {
+      if (e.key === 'Enter') entrar();
+    });
+
+    function mostrarErro(msg) {
+      const el = document.getElementById('erroMsg');
+      el.textContent = msg;
+      el.classList.add('mostrar');
+    }
+
+    async function entrar() {
+      const login = document.getElementById('login').value.trim();
+      const senha = document.getElementById('senha').value;
+      const btn = document.getElementById('btnEntrar');
+      document.getElementById('erroMsg').classList.remove('mostrar');
+
+      if (!login || !senha) return mostrarErro('Preencha o usuário e a senha.');
+
+      btn.disabled = true;
+      btn.textContent = 'Entrando...';
+
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, senha })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          mostrarErro(data.error || 'Não foi possível entrar.');
+          document.getElementById('senha').value = '';
+          document.getElementById('senha').focus();
+          return;
+        }
+
+        sessionStorage.setItem('cem_token', data.token);
+        sessionStorage.setItem('cem_usuario', JSON.stringify(data.usuario));
+        window.location.href = data.usuario.tipo === 'responsavel' ? '/app' : '/sistema';
+      } catch (e) {
+        mostrarErro('Erro de conexão com o servidor.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Entrar';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+node_modules/
+
+# Banco de dados e cache local
+dados/*.db
+dados/*.db-shm
+dados/*.db-wal
+dados/municipios.json
+
+# Documentos enviados pelos usuários
+uploads/
+
+# Segredos
+.env
+
+*.log
