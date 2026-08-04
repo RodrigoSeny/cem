@@ -108,9 +108,39 @@ por aluno. Podem **exigir ciência**: o responsável toca em "Estou ciente" e o
 sistema grava data e hora. A escola acompanha quem leu e quem confirmou.
 
 **Financeiro** — planos de pagamento, contrato do aluno no ano letivo (com
-desconto e bolsa), geração automática das parcelas, baixa total ou parcial,
-estorno, cobranças avulsas, extrato por aluno e painel de inadimplência com
-botão de cobrança pelo WhatsApp.
+desconto e bolsa), geração das parcelas, baixa total, parcial ou **em lote**,
+estorno, extrato por aluno e painel de inadimplência com cobrança pelo WhatsApp.
+
+**Cobranças variáveis** — taxas, eventos e serviços cobrados além da
+mensalidade. Na criação escolhe-se:
+
+- **alcance**: todos os alunos, uma turma, um turno ou individual;
+- **periodicidade**: única, mensal, bimestral, trimestral, semestral ou anual,
+  com número de repetições;
+- **modo**: *somar na mensalidade* (entra no documento único do mês) ou
+  *cobrança extra* (gera documento à parte, com vencimento próprio).
+
+Antes de salvar, a tela mostra quantos alunos serão alcançados e o total
+previsto. Depois de lançada, valor e alcance ficam travados — o histórico não
+pode mudar debaixo de um recebimento já feito.
+
+**Movimento mensal** — o gerador varre a competência, soma a mensalidade base
+com as cobranças do mês de cada aluno e monta o documento único discriminado.
+No exemplo: mensalidade R$ 800 + hora extra R$ 100 + material R$ 250 + festa
+R$ 50 = **R$ 1.200 num documento só**, com cada linha apontando seu centro de
+custo. A prévia não grava nada; só o botão *Gerar* efetiva.
+
+**Planilha de cobrança** — enquanto o boleto sai pelo banco, esta é a lista de
+trabalho: responsável financeiro, CPF, contato, endereço, alunos, detalhamento
+e valor. Sai em CSV e em papel timbrado. A estrutura já é a de uma remessa —
+quando virar arquivo bancário (CNAB), é daqui que os dados saem.
+
+**Despesas e centros de custo** — todo lançamento, de receita ou de despesa,
+carrega um centro de custo. É o que responde *"a Festa da Criança arrecadou
+quanto, custou quanto, e quantos boletos ainda faltam entrar"*. Cada centro tem
+orçamento previsto, receita prevista/recebida, despesas lançadas/pagas, saldo e
+uma prestação de contas impressa com o timbre da escola. As despesas aceitam
+anexo da nota fiscal.
 
 **Painel** — matrículas, ocupação das turmas, aniversariantes do mês, últimas
 matrículas, alertas de saúde e pendências de cadastro.

@@ -55,6 +55,12 @@ app.use('/api/portal',        require('./src/routes/portal.routes'));
 app.use('/api/anexos',        require('./src/routes/anexos.routes').router);
 app.use('/api/ocorrencias',   require('./src/routes/ocorrencias.routes').router);
 app.use('/api/mensagens',     require('./src/routes/mensagens.routes').router);
+// As rotas específicas do financeiro vêm antes do router geral,
+// senão '/planos' e companhia capturariam '/cobrancas', '/despesas'…
+const custos = require('./src/routes/custos.routes');
+app.use('/api/financeiro/centros-custo', custos.centros);
+app.use('/api/financeiro/despesas',      custos.despesas);
+app.use('/api/financeiro/cobrancas',     require('./src/routes/cobrancas.routes').router);
 app.use('/api/financeiro',    require('./src/routes/financeiro.routes').router);
 app.use('/api/municipios',    require('./src/routes/municipios.routes'));
 app.use('/api/sql',           require('./src/routes/sql.routes'));

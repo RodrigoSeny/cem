@@ -385,9 +385,184 @@ CREATE TABLE IF NOT EXISTS pagamentos (
   criado_em       TEXT DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_pag_mens ON pagamentos (mensalidade_id);
+
+-- ── Centros de custo ──────────────────────────────────────────
+-- Amarram receita e despesa: é o que responde "quanto a festa
+-- custou e quanto dela já foi pago".
+CREATE TABLE IF NOT EXISTS centros_custo (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  codigo             TEXT NOT NULL UNIQUE,
+  nome               TEXT NOT NULL,
+  descricao          TEXT,
+  tipo               TEXT NOT NULL DEFAULT 'evento'
+                       CHECK (tipo IN ('evento','material','rotina','servico','outro')),
+  data_inicio        TEXT,
+  data_fim           TEXT,
+  orcamento_previsto REAL NOT NULL DEFAULT 0,
+  ativo              INTEGER NOT NULL DEFAULT 1,
+  criado_em          TEXT DEFAULT (datetime('now','localtime'))
+);
+
+-- ── Cobranças programadas (variáveis) ─────────────────────────
+-- modo 'embutir'  → soma na mensalidade do mês
+-- modo 'separada' → gera documento próprio (a extra avulsa)
+CREATE TABLE IF NOT EXISTS cobrancas (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  descricao          TEXT NOT NULL,
+  valor              REAL NOT NULL,
+  centro_custo_id    INTEGER REFERENCES centros_custo(id) ON DELETE SET NULL,
+  modo               TEXT NOT NULL DEFAULT 'embutir'
+                       CHECK (modo IN ('embutir','separada')),
+  escopo             TEXT NOT NULL DEFAULT 'todos'
+                       CHECK (escopo IN ('todos','turma','turno','aluno')),
+  turma_id           INTEGER REFERENCES turmas(id) ON DELETE SET NULL,
+  turno              TEXT,
+  aluno_id           INTEGER REFERENCES alunos(id) ON DELETE CASCADE,
+  periodicidade      TEXT NOT NULL DEFAULT 'unica'
+                       CHECK (periodicidade IN ('unica','mensal','bimestral','trimestral','semestral','anual')),
+  competencia_inicio TEXT NOT NULL,
+  ocorrencias        INTEGER NOT NULL DEFAULT 1,
+  dia_vencimento     INTEGER,
+  observacoes        TEXT,
+  ativa              INTEGER NOT NULL DEFAULT 1,
+  criado_por         INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  criado_nome        TEXT,
+  criado_em          TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_cobr_comp ON cobrancas (competencia_inicio, ativa);
+
+-- Quem deve o quê, em qual competência (gerado a partir do escopo)
+CREATE TABLE IF NOT EXISTS cobranca_alunos (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  cobranca_id    INTEGER NOT NULL REFERENCES cobrancas(id) ON DELETE CASCADE,
+  aluno_id       INTEGER NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  competencia    TEXT NOT NULL,
+  valor          REAL NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'pendente'
+                   CHECK (status IN ('pendente','lancada','cancelada')),
+  mensalidade_id INTEGER REFERENCES mensalidades(id) ON DELETE SET NULL,
+  criado_em      TEXT DEFAULT (datetime('now','localtime')),
+  UNIQUE (cobranca_id, aluno_id, competencia)
+);
+CREATE INDEX IF NOT EXISTS idx_cobral_pend ON cobranca_alunos (aluno_id, competencia, status);
+
+-- ── Itens da mensalidade ──────────────────────────────────────
+-- A mensalidade vira cabeçalho + itens: é o que permite o
+-- documento único discriminado e o rateio por centro de custo.
+CREATE TABLE IF NOT EXISTS mensalidade_itens (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  mensalidade_id  INTEGER NOT NULL REFERENCES mensalidades(id) ON DELETE CASCADE,
+  descricao       TEXT NOT NULL,
+  valor           REAL NOT NULL,
+  tipo            TEXT NOT NULL DEFAULT 'cobranca'
+                    CHECK (tipo IN ('mensalidade','cobranca','desconto','acrescimo')),
+  centro_custo_id INTEGER REFERENCES centros_custo(id) ON DELETE SET NULL,
+  cobranca_id     INTEGER REFERENCES cobrancas(id) ON DELETE SET NULL,
+  ordem           INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_item_mens ON mensalidade_itens (mensalidade_id);
+CREATE INDEX IF NOT EXISTS idx_item_cc   ON mensalidade_itens (centro_custo_id);
+
+-- ── Despesas ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS despesas (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  descricao        TEXT NOT NULL,
+  fornecedor       TEXT,
+  documento        TEXT,
+  valor            REAL NOT NULL,
+  centro_custo_id  INTEGER REFERENCES centros_custo(id) ON DELETE SET NULL,
+  competencia      TEXT,
+  vencimento       TEXT,
+  data_pagamento   TEXT,
+  forma            TEXT,
+  status           TEXT NOT NULL DEFAULT 'aberta'
+                     CHECK (status IN ('aberta','paga','cancelada')),
+  observacoes      TEXT,
+  registrado_por   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  registrado_nome  TEXT,
+  criado_em        TEXT DEFAULT (datetime('now','localtime')),
+  atualizado_em    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_desp_cc  ON despesas (centro_custo_id);
+CREATE INDEX IF NOT EXISTS idx_desp_st  ON despesas (status, vencimento);
 `;
 
 db.exec(SCHEMA);
+
+// ────────────────────────────────────────────────────────────────
+// MIGRAÇÕES
+// Ajustes em bancos que já existem. Todas idempotentes: rodam a
+// cada subida e não fazem nada se já foram aplicadas.
+// ────────────────────────────────────────────────────────────────
+function migrar() {
+  const colunas = tabela => db.pragma(`table_info(${tabela})`).map(c => c.name);
+
+  // 1. Origem da mensalidade (contrato, avulsa ou cobrança separada)
+  if (!colunas('mensalidades').includes('origem')) {
+    db.exec(`ALTER TABLE mensalidades ADD COLUMN origem TEXT NOT NULL DEFAULT 'contrato'`);
+    console.log('↗️  mensalidades.origem criada.');
+  }
+
+  // 2. Anexos passam a aceitar despesa (nota fiscal).
+  //    O CHECK não é alterável no SQLite: recria a tabela preservando os dados.
+  const ddlAnexos = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='anexos'`
+  ).get()?.sql || '';
+
+  if (!ddlAnexos.includes("'despesa'")) {
+    const recriar = db.transaction(() => {
+      db.exec(`
+        CREATE TABLE anexos_novo (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          entidade       TEXT NOT NULL CHECK (entidade IN ('aluno','responsavel','funcionario','ocorrencia','despesa')),
+          entidade_id    INTEGER NOT NULL,
+          categoria      TEXT NOT NULL DEFAULT 'documento',
+          descricao      TEXT,
+          nome_original  TEXT NOT NULL,
+          nome_arquivo   TEXT NOT NULL,
+          mime           TEXT,
+          tamanho        INTEGER,
+          criado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          criado_em      TEXT DEFAULT (datetime('now','localtime'))
+        );
+        INSERT INTO anexos_novo SELECT id, entidade, entidade_id, categoria, descricao,
+               nome_original, nome_arquivo, mime, tamanho, criado_por, criado_em FROM anexos;
+        DROP TABLE anexos;
+        ALTER TABLE anexos_novo RENAME TO anexos;
+        CREATE INDEX IF NOT EXISTS idx_anexos_entidade ON anexos (entidade, entidade_id);
+      `);
+    });
+    db.pragma('foreign_keys = OFF');
+    recriar();
+    db.pragma('foreign_keys = ON');
+    console.log('↗️  anexos agora aceitam despesa.');
+  }
+
+  // 3. Mensalidades antigas viram cabeçalho + item, para o
+  //    documento sair discriminado e entrar no centro de custo.
+  const semItens = db.prepare(`
+    SELECT m.id, m.descricao, m.competencia, m.valor_original, m.valor_desconto, m.valor_acrescimo
+      FROM mensalidades m
+     WHERE NOT EXISTS (SELECT 1 FROM mensalidade_itens i WHERE i.mensalidade_id = m.id)`).all();
+
+  if (semItens.length) {
+    const inserir = db.prepare(`
+      INSERT INTO mensalidade_itens (mensalidade_id, descricao, valor, tipo, ordem)
+      VALUES (?, ?, ?, ?, ?)`);
+
+    const converter = db.transaction(linhas => {
+      for (const m of linhas) {
+        inserir.run(m.id, m.descricao || `Mensalidade ${m.competencia}`, m.valor_original, 'mensalidade', 0);
+        if (m.valor_desconto > 0) inserir.run(m.id, 'Desconto', -m.valor_desconto, 'desconto', 1);
+        if (m.valor_acrescimo > 0) inserir.run(m.id, 'Acréscimo', m.valor_acrescimo, 'acrescimo', 2);
+      }
+    });
+    converter(semItens);
+    console.log(`↗️  ${semItens.length} mensalidade(s) convertida(s) para o formato com itens.`);
+  }
+}
+
+migrar();
 
 // ────────────────────────────────────────────────────────────────
 // HELPERS

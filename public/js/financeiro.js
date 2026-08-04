@@ -531,8 +531,13 @@ const Financeiro = {
           ${d.parcelas.map(p => `
             <tr>
               <td class="mono" style="font-size:12px">${competenciaBR(p.competencia)}</td>
-              <td style="font-size:12.5px">${escapar(p.descricao || '—')}
-                ${p.pagamentos.length ? `<div style="font-size:11px;color:var(--txt3)">${p.pagamentos.map(g =>
+              <td style="font-size:12.5px">
+                ${(p.itens && p.itens.length > 1)
+                  ? p.itens.map(i => `<div>${escapar(i.descricao)}
+                      <span class="mono ${i.valor < 0 ? 'c-green' : ''}">${moedaBR(i.valor)}</span>
+                      ${i.centro_codigo ? `<span class="c-txt3" style="font-size:10.5px">${escapar(i.centro_codigo)}</span>` : ''}</div>`).join('')
+                  : escapar(p.descricao || '—')}
+                ${p.pagamentos.length ? `<div style="font-size:11px;color:var(--txt3);margin-top:4px">${p.pagamentos.map(g =>
                   `${dataBR(g.data_pagamento)} ${moedaBR(g.valor)} (${FORMAS_PAGAMENTO[g.forma] || g.forma})`).join(' · ')}</div>` : ''}
               </td>
               <td class="mono" style="font-size:12px">${dataBR(p.vencimento)}</td>

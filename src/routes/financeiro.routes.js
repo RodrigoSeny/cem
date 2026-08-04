@@ -116,6 +116,12 @@ function gerarParcelas(contrato) {
     INSERT INTO mensalidades (contrato_id, aluno_id, competencia, parcela, descricao, valor_original, valor_desconto, vencimento, status, criado_em)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'aberta', ?)`);
 
+  // A parcela nasce já detalhada: sem o item base, o documento do mês
+  // sairia só com as cobranças extras e o centro de custo não fecharia.
+  const item = db.prepare(`
+    INSERT INTO mensalidade_itens (mensalidade_id, descricao, valor, tipo, ordem)
+    VALUES (?, ?, ?, ?, ?)`);
+
   let criadas = 0;
   for (let i = 0; i < contrato.num_parcelas; i++) {
     const mes0 = (contrato.mes_inicio - 1) + i;
@@ -130,11 +136,15 @@ function gerarParcelas(contrato) {
     const dia = Math.min(contrato.dia_vencimento, ultimoDia);
     const vencimento = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 
-    stmt.run(
+    const descricao = `Mensalidade ${String(mes).padStart(2, '0')}/${ano}`;
+    const info = stmt.run(
       contrato.id, contrato.aluno_id, competencia, parcela,
-      `Mensalidade ${String(mes).padStart(2, '0')}/${ano}`,
-      bruto, valorDesconto, vencimento, agora()
+      descricao, bruto, valorDesconto, vencimento, agora()
     );
+
+    item.run(info.lastInsertRowid, descricao, bruto, 'mensalidade', 0);
+    if (valorDesconto > 0) item.run(info.lastInsertRowid, 'Desconto', -valorDesconto, 'desconto', 1);
+
     criadas++;
   }
   return criadas;
@@ -290,10 +300,19 @@ router.post('/mensalidades', rota((req, res) => {
   d.valor_desconto = Number(d.valor_desconto) || 0;
   d.valor_acrescimo = Number(d.valor_acrescimo) || 0;
   d.parcela = null;
+  d.origem = 'avulsa';
   d.criado_em = agora();
+
+  const centro = req.body.centro_custo_id ? Number(req.body.centro_custo_id) : null;
 
   const { sql, valores } = montarInsert('mensalidades', d);
   const info = db.prepare(sql).run(...valores);
+
+  db.prepare(`
+    INSERT INTO mensalidade_itens (mensalidade_id, descricao, valor, tipo, centro_custo_id, ordem)
+    VALUES (?, ?, ?, 'cobranca', ?, 0)`)
+    .run(info.lastInsertRowid, d.descricao, d.valor_original, centro);
+
   log(req, 'criar', 'mensalidades', info.lastInsertRowid, d.descricao);
   res.status(201).json({ id: info.lastInsertRowid });
 }));
@@ -378,6 +397,128 @@ router.delete('/pagamentos/:id', rota((req, res) => {
 
 // ══════════════════════ EXTRATO E RESUMO ══════════════════════
 
+// ── Planilha de cobrança do mês ───────────────────────────────
+// Enquanto o boleto é emitido pelo banco, esta é a lista que a
+// secretaria usa: responsável financeiro, aluno, itens e total.
+// A estrutura já é a de uma remessa — o dia que virar arquivo
+// bancário (CNAB), é daqui que os dados saem.
+router.get('/planilha', rota((req, res) => {
+  const competencia = String(req.query.competencia || hoje().slice(0, 7)).slice(0, 7);
+  const somenteAberto = req.query.status !== 'todas';
+
+  const filtroStatus = somenteAberto ? `AND m.status = 'aberta'` : `AND m.status <> 'cancelada'`;
+
+  const linhas = db.prepare(`
+    SELECT m.id, m.competencia, m.descricao, m.vencimento, m.status, m.origem,
+           m.valor_original, m.valor_desconto, m.valor_acrescimo,
+           (SELECT COALESCE(SUM(p.valor),0) FROM pagamentos p WHERE p.mensalidade_id = m.id) AS valor_pago,
+           a.id AS aluno_id, a.nome AS aluno_nome, a.matricula,
+           t.nome AS turma_nome, COALESCE(t.turno, a.turno) AS turno,
+           r.id AS responsavel_id, r.nome AS responsavel_nome, r.cpf AS responsavel_cpf,
+           COALESCE(r.whatsapp, r.telefone) AS responsavel_contato, r.email AS responsavel_email,
+           r.logradouro, r.numero, r.bairro, r.cidade, r.estado, r.cep
+      FROM mensalidades m
+      JOIN alunos a ON a.id = m.aluno_id
+      LEFT JOIN turmas t ON t.id = a.turma_id
+      LEFT JOIN contratos_financeiros c ON c.id = m.contrato_id
+      LEFT JOIN responsaveis r ON r.id = c.responsavel_id
+     WHERE m.competencia = ? ${filtroStatus}
+     ORDER BY r.nome, a.nome`).all(competencia);
+
+  const itens = db.prepare(`
+    SELECT i.mensalidade_id, i.descricao, i.valor, i.tipo, cc.codigo AS centro_codigo
+      FROM mensalidade_itens i
+      LEFT JOIN centros_custo cc ON cc.id = i.centro_custo_id
+     WHERE i.mensalidade_id IN (SELECT id FROM mensalidades WHERE competencia = ?)
+     ORDER BY i.ordem`).all(competencia);
+
+  const porMensalidade = new Map();
+  for (const i of itens) {
+    if (!porMensalidade.has(i.mensalidade_id)) porMensalidade.set(i.mensalidade_id, []);
+    porMensalidade.get(i.mensalidade_id).push(i);
+  }
+
+  const documentos = linhas.map(l => {
+    const total = Number((l.valor_original - l.valor_desconto + l.valor_acrescimo).toFixed(2));
+    return {
+      ...l,
+      itens: porMensalidade.get(l.id) || [],
+      valor_total: total,
+      saldo: Number((total - l.valor_pago).toFixed(2)),
+      endereco: [l.logradouro, l.numero, l.bairro, l.cidade, l.estado].filter(Boolean).join(', '),
+    };
+  });
+
+  // Agrupado por responsável: é assim que a cobrança sai na prática
+  const porResponsavel = [];
+  const indice = new Map();
+  for (const d of documentos) {
+    const chave = d.responsavel_id || `sem-${d.aluno_id}`;
+    if (!indice.has(chave)) {
+      indice.set(chave, {
+        responsavel_id: d.responsavel_id,
+        responsavel_nome: d.responsavel_nome || '— sem responsável financeiro —',
+        responsavel_cpf: d.responsavel_cpf,
+        responsavel_contato: d.responsavel_contato,
+        responsavel_email: d.responsavel_email,
+        endereco: d.endereco,
+        documentos: [],
+        total: 0,
+      });
+      porResponsavel.push(indice.get(chave));
+    }
+    const g = indice.get(chave);
+    g.documentos.push(d);
+    g.total = Number((g.total + d.saldo).toFixed(2));
+  }
+
+  res.json({
+    competencia,
+    documentos,
+    responsaveis: porResponsavel,
+    totais: {
+      documentos: documentos.length,
+      responsaveis: porResponsavel.length,
+      valor: Number(documentos.reduce((s, d) => s + d.saldo, 0).toFixed(2)),
+      sem_responsavel: documentos.filter(d => !d.responsavel_id).length,
+    },
+  });
+}));
+
+// ── Baixa em lote ─────────────────────────────────────────────
+router.post('/mensalidades/pagar-lote', rota((req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return res.status(400).json({ error: 'Selecione ao menos uma parcela.' });
+
+  const forma = FORMAS.includes(req.body.forma) ? req.body.forma : 'dinheiro';
+  const data = req.body.data_pagamento || hoje();
+
+  const inserir = db.prepare(`
+    INSERT INTO pagamentos (mensalidade_id, valor, data_pagamento, forma, observacoes, registrado_por, registrado_nome, criado_em)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+
+  let quitadas = 0, ignoradas = 0, total = 0;
+
+  const baixar = db.transaction(() => {
+    for (const id of ids) {
+      const linha = db.prepare(`${SELECT_MENS} WHERE m.id = ?`).get(id);
+      if (!linha) { ignoradas++; continue; }
+      const m = enriquecer(linha);
+      if (m.status !== 'aberta' || m.saldo <= 0) { ignoradas++; continue; }
+
+      inserir.run(id, m.saldo, data, forma, req.body.observacoes || 'Baixa em lote',
+                  req.usuario?.id ?? null, req.usuario?.nome ?? null, agora());
+      db.prepare(`UPDATE mensalidades SET status = 'paga' WHERE id = ?`).run(id);
+      quitadas++;
+      total += m.saldo;
+    }
+  });
+  baixar();
+
+  log(req, 'pagar-lote', 'mensalidades', null, `${quitadas} parcela(s) · R$ ${total.toFixed(2)}`);
+  res.json({ ok: true, quitadas, ignoradas, total: Number(total.toFixed(2)) });
+}));
+
 router.get('/aluno/:id', rota((req, res) => {
   const alunoId = Number(req.params.id);
   const aluno = db.prepare(`
@@ -392,6 +533,13 @@ router.get('/aluno/:id', rota((req, res) => {
     p.pagamentos = db.prepare(`
       SELECT id, valor, data_pagamento, forma, observacoes, registrado_nome
         FROM pagamentos WHERE mensalidade_id = ? ORDER BY data_pagamento`).all(p.id);
+
+    // Detalhamento do documento (mensalidade + cobranças do mês)
+    p.itens = db.prepare(`
+      SELECT i.descricao, i.valor, i.tipo, cc.codigo AS centro_codigo, cc.nome AS centro_nome
+        FROM mensalidade_itens i
+        LEFT JOIN centros_custo cc ON cc.id = i.centro_custo_id
+       WHERE i.mensalidade_id = ? ORDER BY i.ordem`).all(p.id);
   }
 
   const abertas = parcelas.filter(p => p.status === 'aberta');

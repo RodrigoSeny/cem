@@ -18,7 +18,7 @@ const router = express.Router();
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const ENTIDADES = ['aluno', 'responsavel', 'funcionario', 'ocorrencia'];
+const ENTIDADES = ['aluno', 'responsavel', 'funcionario', 'ocorrencia', 'despesa'];
 
 // Categorias sugeridas na interface (o campo aceita texto livre)
 const CATEGORIAS = [
@@ -31,6 +31,7 @@ const CATEGORIAS = [
   { id: 'identidade',    nome: 'RG / CPF' },
   { id: 'residencia',    nome: 'Comprovante de residência' },
   { id: 'contrato',      nome: 'Contrato' },
+  { id: 'nota_fiscal',   nome: 'Nota fiscal / recibo' },
   { id: 'foto',          nome: 'Foto' },
   { id: 'documento',     nome: 'Outro documento' },
 ];

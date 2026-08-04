@@ -378,8 +378,13 @@
 
       <div class="abas" id="finAbas">
         <button class="aba active" data-finaba="resumo">Resumo</button>
-        <button class="aba" data-finaba="parcelas">Mensalidades</button>
+        <button class="aba" data-finaba="parcelas">Recebimentos</button>
+        <button class="aba" data-finaba="cobrancas">Cobranças</button>
+        <button class="aba" data-finaba="movimento">Movimento mensal</button>
+        <button class="aba" data-finaba="planilha">Planilha de cobrança</button>
         <button class="aba" data-finaba="contratos">Contratos</button>
+        <button class="aba" data-finaba="despesas">Despesas</button>
+        <button class="aba" data-finaba="centros">Centros de custo</button>
       </div>
 
       <div class="aba-conteudo active" id="finaba-resumo">
@@ -409,17 +414,147 @@
           <div class="campo"><label>até</label><input type="date" class="form-input" id="finAte"></div>
         </div>
 
+        <div id="finBarraLote" class="card card-p mb-4 oculto" style="padding:12px 16px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:19px">✅</span>
+            <div style="flex:1;min-width:200px;font-size:13px">
+              <strong id="finLoteQtd">0</strong> parcela(s) selecionada(s) ·
+              total <strong id="finLoteTotal">R$ 0,00</strong>
+            </div>
+            <select class="form-select" id="finLoteForma" style="min-width:170px">
+              <option value="pix">PIX</option><option value="dinheiro">Dinheiro</option>
+              <option value="transferencia">Transferência</option><option value="boleto">Boleto</option>
+              <option value="cartao_credito">Cartão de crédito</option><option value="cartao_debito">Cartão de débito</option>
+            </select>
+            <input type="date" class="form-input" id="finLoteData" style="min-width:150px">
+            <button class="btn btn-green" onclick="Financeiro.baixarLote()">Dar baixa no lote</button>
+          </div>
+        </div>
+
         <div class="tabela-wrap">
           <div class="tabela-scroll">
             <table class="tabela">
               <thead>
-                <tr><th>Aluno</th><th>Competência</th><th>Descrição</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Saldo</th><th>Situação</th><th class="acoes">Ações</th></tr>
+                <tr>
+                  <th style="width:34px"><input type="checkbox" id="finMarcarTodos" onchange="Financeiro.marcarTodos(this.checked)"></th>
+                  <th>Aluno</th><th>Competência</th><th>Descrição</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Saldo</th><th>Situação</th><th class="acoes">Ações</th>
+                </tr>
               </thead>
               <tbody id="finCorpo"></tbody>
             </table>
           </div>
           <div class="tabela-rodape"><span id="finTotal">—</span></div>
         </div>
+      </div>
+
+      <!-- Cobranças variáveis -->
+      <div class="aba-conteudo" id="finaba-cobrancas">
+        <div class="filtros">
+          <div class="campo">
+            <label>Centro de custo</label>
+            <select class="form-select" id="cobrFiltroCentro" style="min-width:200px"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label>Situação</label>
+            <select class="form-select" id="cobrFiltroAtiva" style="min-width:140px">
+              <option value="">Todas</option><option value="1" selected>Ativas</option><option value="0">Inativas</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="Financeiro.abrirCobrancaVariavel()">＋ Nova cobrança</button>
+        </div>
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Descrição</th><th>Valor</th><th>Alcance</th><th>Periodicidade</th><th>Modo</th><th>Centro de custo</th><th>Alunos</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="cobrCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="cobrTotal">—</span></div>
+        </div>
+      </div>
+
+      <!-- Gerador do movimento mensal -->
+      <div class="aba-conteudo" id="finaba-movimento">
+        <div class="card card-p mb-4">
+          <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Competência</label>
+              <input type="month" class="form-input" id="movCompetencia" style="min-width:170px">
+            </div>
+            <button class="btn btn-ghost" onclick="Financeiro.previaMovimento()">🔎 Ver prévia</button>
+            <button class="btn btn-primary oculto" id="btnGerarMovimento" onclick="Financeiro.gerarMovimento()">▶ Gerar lançamento</button>
+            <div class="form-hint" style="flex:1;min-width:230px;margin:0">
+              A prévia não grava nada. O lançamento soma as cobranças do mês na mensalidade
+              de cada aluno e cria os documentos avulsos.
+            </div>
+          </div>
+        </div>
+        <div id="movResultado"></div>
+      </div>
+
+      <!-- Planilha de cobrança -->
+      <div class="aba-conteudo" id="finaba-planilha">
+        <div class="card card-p mb-4">
+          <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Competência</label>
+              <input type="month" class="form-input" id="planCompetencia" style="min-width:170px">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Situação</label>
+              <select class="form-select" id="planStatus" style="min-width:160px">
+                <option value="aberto">Somente em aberto</option>
+                <option value="todas">Todas</option>
+              </select>
+            </div>
+            <button class="btn btn-ghost" onclick="Financeiro.carregarPlanilha()">🔄 Montar</button>
+            <button class="btn btn-ghost" onclick="Financeiro.planilhaCsv()">⬇️ CSV</button>
+            <button class="btn btn-primary" onclick="Financeiro.imprimirPlanilha()">🖨️ Imprimir</button>
+          </div>
+          <div class="form-hint mt-3">
+            Lista para levar ao banco: responsável financeiro, CPF, contato, alunos e o valor de cada um.
+            É desta estrutura que sairá o arquivo bancário quando a remessa for automatizada.
+          </div>
+        </div>
+        <div id="planResultado"></div>
+      </div>
+
+      <!-- Despesas -->
+      <div class="aba-conteudo" id="finaba-despesas">
+        <div class="filtros">
+          <div class="campo">
+            <label>Centro de custo</label>
+            <select class="form-select" id="despFiltroCentro" style="min-width:200px"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label>Situação</label>
+            <select class="form-select" id="despFiltroStatus" style="min-width:140px">
+              <option value="">Todas</option><option value="aberta">Em aberto</option><option value="paga">Pagas</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="Financeiro.abrirDespesa()">＋ Nova despesa</button>
+        </div>
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Descrição</th><th>Fornecedor</th><th>Centro de custo</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="despCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="despTotal">—</span></div>
+        </div>
+      </div>
+
+      <!-- Centros de custo -->
+      <div class="aba-conteudo" id="finaba-centros">
+        <div class="filtros">
+          <button class="btn btn-primary" onclick="Financeiro.abrirCentro()">＋ Novo centro de custo</button>
+        </div>
+        <div id="centrosLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))"></div>
       </div>
 
       <div class="aba-conteudo" id="finaba-contratos">
@@ -1361,6 +1496,201 @@
   </div>
 </div>
 
+<!-- Cobrança variável -->
+<div class="modal-overlay" id="modalCobrancaVar">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="cobrVarTitulo">Nova cobrança</h3><div class="sub">Entra no movimento do mês conforme o alcance escolhido</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalCobrancaVar')">✕</button>
+    </div>
+    <div class="modal-body" id="formCobrancaVar">
+      <div class="form-grid3">
+        <div class="form-group col-2"><label class="form-label">Descrição <span class="req">*</span></label><input class="form-input" data-campo="descricao" placeholder="Ex.: Taxa de material"></div>
+        <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" data-campo="valor" placeholder="0,00"></div>
+        <div class="form-group col-2">
+          <label class="form-label">Centro de custo <span class="req">*</span></label>
+          <select class="form-select" id="cobrVarCentro"></select>
+          <div class="form-hint">É o que permite fechar quanto o evento arrecadou e custou.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modo <span class="req">*</span></label>
+          <select class="form-select" data-campo="modo">
+            <option value="embutir">Somar na mensalidade</option>
+            <option value="separada">Cobrança extra (documento à parte)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="secao-titulo">Quem será cobrado</div>
+      <div class="form-grid3">
+        <div class="form-group">
+          <label class="form-label">Alcance <span class="req">*</span></label>
+          <select class="form-select" id="cobrVarEscopo" onchange="Financeiro.trocarEscopo()">
+            <option value="todos">Todos os alunos</option>
+            <option value="turma">Uma turma</option>
+            <option value="turno">Um turno</option>
+            <option value="aluno">Um aluno</option>
+          </select>
+        </div>
+        <div class="form-group col-2 oculto" id="cobrVarGrupoTurma">
+          <label class="form-label">Turma</label>
+          <select class="form-select" id="cobrVarTurma"></select>
+        </div>
+        <div class="form-group col-2 oculto" id="cobrVarGrupoTurno">
+          <label class="form-label">Turno</label>
+          <select class="form-select" id="cobrVarTurno">
+            <option value="manha">Manhã</option><option value="tarde">Tarde</option>
+            <option value="integral">Integral</option><option value="noite">Noite</option>
+          </select>
+        </div>
+        <div class="form-group col-2 oculto" id="cobrVarGrupoAluno">
+          <label class="form-label">Aluno</label>
+          <select class="form-select" id="cobrVarAluno"></select>
+        </div>
+      </div>
+
+      <div class="secao-titulo">Quando</div>
+      <div class="form-grid3">
+        <div class="form-group">
+          <label class="form-label">Periodicidade <span class="req">*</span></label>
+          <select class="form-select" data-campo="periodicidade" id="cobrVarPeriodicidade" onchange="Financeiro.trocarPeriodicidade()">
+            <option value="unica">Única</option>
+            <option value="mensal">Mensal</option>
+            <option value="bimestral">Bimestral</option>
+            <option value="trimestral">Trimestral</option>
+            <option value="semestral">Semestral</option>
+            <option value="anual">Anual</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Competência inicial <span class="req">*</span></label><input type="month" class="form-input" id="cobrVarCompetencia"></div>
+        <div class="form-group oculto" id="cobrVarGrupoOcorrencias">
+          <label class="form-label">Repetições</label>
+          <input type="number" class="form-input" data-campo="ocorrencias" min="1" max="24" value="1">
+        </div>
+        <div class="form-group oculto" id="cobrVarGrupoVencimento">
+          <label class="form-label">Dia do vencimento</label>
+          <input type="number" class="form-input" data-campo="dia_vencimento" min="1" max="31" value="10">
+          <div class="form-hint">Só para cobrança extra.</div>
+        </div>
+        <div class="form-group col-3"><label class="form-label">Observações</label><input class="form-input" data-campo="observacoes"></div>
+      </div>
+
+      <div class="card card-p" style="padding:13px 16px;background:var(--surface)" id="cobrVarPrevia"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalCobrancaVar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Financeiro.salvarCobrancaVariavel()">💾 Salvar cobrança</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detalhe da cobrança -->
+<div class="modal-overlay" id="modalCobrancaDetalhe">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="cobrDetTitulo">Cobrança</h3><div class="sub" id="cobrDetSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalCobrancaDetalhe')">✕</button>
+    </div>
+    <div class="modal-body" id="cobrDetCorpo"></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="fecharModal('modalCobrancaDetalhe')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Despesa -->
+<div class="modal-overlay" id="modalDespesa">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="despTitulo">Nova despesa</h3><div class="sub">Entra no fechamento do centro de custo</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalDespesa')">✕</button>
+    </div>
+    <div class="modal-body" id="formDespesa">
+      <div class="form-grid3">
+        <div class="form-group col-2"><label class="form-label">Descrição <span class="req">*</span></label><input class="form-input" data-campo="descricao"></div>
+        <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" data-campo="valor" placeholder="0,00"></div>
+        <div class="form-group col-2">
+          <label class="form-label">Centro de custo <span class="req">*</span></label>
+          <select class="form-select" id="despCentro"></select>
+        </div>
+        <div class="form-group"><label class="form-label">Fornecedor</label><input class="form-input" data-campo="fornecedor"></div>
+        <div class="form-group"><label class="form-label">Documento / NF</label><input class="form-input" data-campo="documento"></div>
+        <div class="form-group"><label class="form-label">Vencimento</label><input type="date" class="form-input" data-campo="vencimento"></div>
+        <div class="form-group"><label class="form-label">Data do pagamento</label><input type="date" class="form-input" data-campo="data_pagamento"></div>
+        <div class="form-group">
+          <label class="form-label">Forma</label>
+          <select class="form-select" data-campo="forma">
+            <option value="">—</option><option value="dinheiro">Dinheiro</option><option value="pix">PIX</option>
+            <option value="transferencia">Transferência</option><option value="boleto">Boleto</option>
+            <option value="cartao_credito">Cartão de crédito</option><option value="cartao_debito">Cartão de débito</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Situação</label>
+          <select class="form-select" data-campo="status">
+            <option value="aberta">Em aberto</option><option value="paga">Paga</option><option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+        <div class="form-group col-3"><label class="form-label">Observações</label><input class="form-input" data-campo="observacoes"></div>
+      </div>
+      <div class="secao-titulo">Nota fiscal / comprovante</div>
+      <div id="despAnexos"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalDespesa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Financeiro.salvarDespesa()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Centro de custo -->
+<div class="modal-overlay" id="modalCentro">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="centroTitulo">Novo centro de custo</h3><div class="sub">Amarra receitas e despesas de um evento ou serviço</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalCentro')">✕</button>
+    </div>
+    <div class="modal-body" id="formCentro">
+      <div class="form-grid">
+        <div class="form-group col-2"><label class="form-label">Nome <span class="req">*</span></label><input class="form-input" data-campo="nome" placeholder="Ex.: Festa da Criança 2026"></div>
+        <div class="form-group">
+          <label class="form-label">Código</label>
+          <input class="form-input" data-campo="codigo" placeholder="Gerado automaticamente" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" data-campo="tipo">
+            <option value="evento">Evento</option><option value="material">Material</option>
+            <option value="rotina">Rotina</option><option value="servico">Serviço</option><option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Início</label><input type="date" class="form-input" data-campo="data_inicio"></div>
+        <div class="form-group"><label class="form-label">Fim</label><input type="date" class="form-input" data-campo="data_fim"></div>
+        <div class="form-group"><label class="form-label">Orçamento previsto (R$)</label><input class="form-input" data-campo="orcamento_previsto" placeholder="0,00"></div>
+        <div class="form-group"><label class="form-check" style="margin-top:26px"><input type="checkbox" data-campo="ativo" checked> Ativo</label></div>
+        <div class="form-group col-2"><label class="form-label">Descrição</label><input class="form-input" data-campo="descricao"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalCentro')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Financeiro.salvarCentro()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fechamento do centro de custo -->
+<div class="modal-overlay" id="modalFechamento">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div><h3 id="fechTitulo">Fechamento</h3><div class="sub" id="fechSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalFechamento')">✕</button>
+    </div>
+    <div class="modal-body" id="fechCorpo"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalFechamento')">Fechar</button>
+      <button class="btn btn-primary" id="btnImprimirFechamento">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
 <!-- Extrato financeiro do aluno -->
 <div class="modal-overlay" id="modalExtrato">
   <div class="modal lg">
@@ -1386,6 +1716,7 @@
 <script src="/js/ocorrencias.js"></script>
 <script src="/js/mensagens.js"></script>
 <script src="/js/financeiro.js"></script>
+<script src="/js/financeiro-extra.js"></script>
 <script src="/js/sql-manager.js"></script>
 </body>
 </html>
