@@ -123,6 +123,43 @@ ficha médica da turma · quadro de funcionários · mapa de turmas.
 Coordenação, Professor e Responsável. Cada perfil libera um conjunto de páginas,
 validado no servidor e refletido no menu.
 
+**SQL Manager** — acesso direto ao banco para suporte, no modelo do SuperPet:
+lista de tabelas com contagem, estrutura e DDL, consultas livres e exportação
+CSV. Exclusivo do Master. Mesmo para ele, as tabelas `usuarios` e `perfis` são
+bloqueadas (evita ler hash de senha ou virar Master por `UPDATE`), comandos de
+escrita exigem confirmação e toda execução vai para a auditoria.
+
+## Controle de acesso
+
+### O perfil Master é invisível para os demais
+
+Quem não é Master não enxerga usuários Master na listagem, não vê o perfil
+Master em Perfis de Acesso, não o encontra no seletor ao criar um acesso e não
+consegue criar, editar, excluir nem redefinir a senha de um Master — inclusive
+pela API. Nem a Direção. Também não é possível se autopromover a Master.
+
+Duas travas adicionais: o sistema nunca fica sem Master ativo (desativar,
+rebaixar ou excluir o último é recusado) e ninguém exclui o próprio acesso.
+
+### Toda tela nova nasce restrita ao Master
+
+O catálogo de páginas fica em `src/auth.js`, na constante `PAGINAS` — é a fonte
+única de verdade. Ao acrescentar uma entrada ali:
+
+1. na subida do servidor, o seed **libera a página para o Master
+   automaticamente** e registra no log quais chegaram;
+2. os demais perfis **não recebem nada**. A liberação para secretaria,
+   coordenação etc. é decisão consciente, feita em *Sistema → Perfis de Acesso*;
+3. marcar `master: true` na página a torna exclusiva do Master — ela nem aparece
+   na montagem de perfis, e é removida de qualquer perfil que a tivesse.
+
+O seed **não** sobrescreve as páginas de perfis já existentes: o que você ajustar
+na tela permanece depois de cada deploy.
+
+Para uma tela nova, o roteiro é: entrada em `PAGINAS`, prefixo da rota em
+`ROTA_PAGINAS` (mesmo arquivo), item no menu com `data-pagina`, entrada em
+`PAGINAS_APP` (`public/js/app.js`) e o `Carregadores['id']` do módulo.
+
 ---
 
 ## Aplicativo (PWA)

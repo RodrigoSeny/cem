@@ -7,6 +7,9 @@
 // ─────────────────────────────────────────────────────────────
 // SESSÃO
 // ─────────────────────────────────────────────────────────────
+// Espelha o catálogo do servidor (src/auth.js): páginas só do Master
+const PAGINAS_SO_MASTER = ['sql-manager'];
+
 const Sessao = {
   token()   { return sessionStorage.getItem('cem_token'); },
   usuario() {
@@ -38,10 +41,18 @@ const Sessao = {
     }
     return u;
   },
+  /** É o perfil Master? (o único que enxerga o próprio Master e o SQL Manager) */
+  ehMaster() {
+    const u = this.usuario();
+    return !!u && u.tipo === 'funcionario' && u.perfil_id === 'PERFIL-MASTER';
+  },
+
   /** O usuário tem acesso à página informada? */
   pode(pagina) {
     const u = this.usuario();
     if (!u) return false;
+    // Página exclusiva do Master não é liberada nem para a Direção
+    if (PAGINAS_SO_MASTER.includes(pagina)) return this.ehMaster();
     if (['PERFIL-MASTER', 'PERFIL-DIRECAO'].includes(u.perfil_id)) return true;
     return Array.isArray(u.paginas) && u.paginas.includes(pagina);
   },

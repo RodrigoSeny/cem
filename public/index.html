@@ -79,6 +79,7 @@
         <div class="nav-submenu-item" data-pagina="perfis"><span class="ico">🛡️</span> Perfis de Acesso</div>
       </div>
       <div class="nav-item" data-pagina="configuracoes"><span class="ico">⚙️</span> Configurações</div>
+      <div class="nav-item" data-pagina="sql-manager"><span class="ico">🗄️</span> SQL Manager</div>
       <div class="nav-item" onclick="window.open('/app','_blank')"><span class="ico">📱</span> Abrir o App</div>
     </div>
 
@@ -487,6 +488,52 @@
         </div>
       </div>
       <div id="perfisLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(290px,1fr))"></div>
+    </section>
+
+    <!-- ─────────── SQL MANAGER (só Master) ─────────── -->
+    <section class="pagina" id="pagina-sql-manager">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">SQL Manager</h1>
+          <p class="pagina-sub">Acesso direto ao banco — exclusivo do perfil Master</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-ghost" onclick="SqlManager.carregarTabelas()">🔄 Atualizar</button>
+        </div>
+      </div>
+
+      <div class="card card-p mb-4" style="border-color:rgba(255,94,94,.35);padding:13px 16px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:20px">⚠️</span>
+          <div style="flex:1;min-width:240px;font-size:12.5px;color:var(--txt2)">
+            Comandos aqui alteram o banco de produção e <strong>não têm desfazer</strong>.
+            As tabelas <code>usuarios</code> e <code>perfis</code> ficam bloqueadas por segurança.
+            Toda execução é registrada na auditoria.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:270px 1fr;gap:16px;align-items:start" id="sqlLayout">
+        <div class="card">
+          <div class="card-head">Tabelas</div>
+          <div id="sqlTabelas" style="max-height:62vh;overflow-y:auto;padding:8px"></div>
+        </div>
+
+        <div>
+          <div class="card card-p mb-4">
+            <label class="form-label">Consulta SQL</label>
+            <textarea class="form-textarea" id="sqlConsulta" spellcheck="false"
+              style="min-height:130px;font-family:var(--mono);font-size:12.5px"
+              placeholder="SELECT * FROM alunos ORDER BY nome LIMIT 50"></textarea>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:11px;align-items:center">
+              <button class="btn btn-primary" onclick="SqlManager.executar()">▶ Executar</button>
+              <button class="btn btn-ghost" onclick="SqlManager.limpar()">Limpar</button>
+              <span class="form-hint" style="margin:0">Ctrl+Enter executa</span>
+            </div>
+          </div>
+          <div id="sqlResultado"></div>
+        </div>
+      </div>
     </section>
 
     <!-- ─────────── CONFIGURAÇÕES ─────────── -->
@@ -1339,5 +1386,6 @@
 <script src="/js/ocorrencias.js"></script>
 <script src="/js/mensagens.js"></script>
 <script src="/js/financeiro.js"></script>
+<script src="/js/sql-manager.js"></script>
 </body>
 </html>

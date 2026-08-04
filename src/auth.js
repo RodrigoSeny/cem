@@ -21,7 +21,17 @@ const JWT_EXPIRES = process.env.JWT_EXPIRES || '12h';
 // os segredos venham a coincidir.
 const JWT_ISSUER = 'cem-erp';
 
-// Catálogo de páginas do sistema — usado no cadastro de perfis
+// ─────────────────────────────────────────────────────────────
+// CATÁLOGO DE PÁGINAS — fonte única de verdade do controle de acesso
+//
+// Toda tela nova entra AQUI. Na subida do servidor o seed sincroniza
+// a lista com o perfil Master (que passa a enxergar a novidade na
+// hora) e não mexe nos demais perfis: a liberação para secretaria,
+// coordenação etc. é decisão consciente, feita em Perfis de Acesso.
+//
+// `master: true` marca página exclusiva do Master — nem a Direção vê,
+// e ela nem aparece na tela de montagem de perfis.
+// ─────────────────────────────────────────────────────────────
 const PAGINAS = [
   { id: 'dashboard',     nome: 'Dashboard',            grupo: 'Geral' },
   { id: 'alunos',        nome: 'Alunos',               grupo: 'Secretaria' },
@@ -34,7 +44,16 @@ const PAGINAS = [
   { id: 'relatorios',    nome: 'Relatórios',           grupo: 'Administrativo' },
   { id: 'usuarios',      nome: 'Usuários e Acessos',   grupo: 'Sistema' },
   { id: 'configuracoes', nome: 'Configurações',        grupo: 'Sistema' },
+  { id: 'sql-manager',   nome: 'SQL Manager',          grupo: 'Sistema', master: true },
 ];
+
+/** Todas as páginas (o Master recebe esta lista inteira). */
+const TODAS_PAGINAS = PAGINAS.map(p => p.id);
+
+/** Páginas que só o Master enxerga. */
+const PAGINAS_MASTER = PAGINAS.filter(p => p.master).map(p => p.id);
+
+const PERFIL_MASTER = 'PERFIL-MASTER';
 
 // Prefixo de rota → páginas que liberam o acesso (qualquer uma basta)
 const ROTA_PAGINAS = {
@@ -51,6 +70,7 @@ const ROTA_PAGINAS = {
   '/api/usuarios':      ['usuarios'],
   '/api/perfis':        ['usuarios'],
   '/api/escola':        ['configuracoes'],
+  '/api/sql':           ['sql-manager'],
 };
 
 const ROTAS_PUBLICAS = [
@@ -84,7 +104,14 @@ function isAdmin(u) {
   return !!u && u.tipo === 'funcionario' && PERFIS_ADMIN.includes(u.perfil_id);
 }
 
+/** Master é o único que enxerga e manipula o próprio perfil Master. */
+function isMaster(u) {
+  return !!u && u.tipo === 'funcionario' && u.perfil_id === PERFIL_MASTER;
+}
+
 function temPagina(u, pagina) {
+  // Página exclusiva do Master não é liberada nem pelo atalho de admin
+  if (PAGINAS_MASTER.includes(pagina)) return isMaster(u);
   if (isAdmin(u)) return true;
   return Array.isArray(u?.paginas) && u.paginas.includes(pagina);
 }
@@ -128,9 +155,19 @@ function authMiddleware(req, res, next) {
     return res.status(403).json({ error: 'Acesso restrito ao portal de responsáveis.' });
   }
 
+  const requeridas = paginasDaRota(url);
+
+  // Rota de página exclusiva do Master: barra antes do atalho de admin,
+  // senão a Direção entraria no SQL Manager.
+  if (requeridas && requeridas.some(p => PAGINAS_MASTER.includes(p))) {
+    if (!isMaster(payload)) {
+      return res.status(403).json({ error: 'Recurso exclusivo do perfil Master.' });
+    }
+    return next();
+  }
+
   if (isAdmin(payload)) return next();
 
-  const requeridas = paginasDaRota(url);
   if (requeridas && !requeridas.some(p => (payload.paginas || []).includes(p))) {
     return res.status(403).json({ error: 'Acesso negado a este módulo.', paginas_requeridas: requeridas });
   }
@@ -152,8 +189,15 @@ function requireAdmin(req, res, next) {
   return res.status(403).json({ error: 'Operação permitida apenas à direção.' });
 }
 
+/** Exige o perfil Master. */
+function requireMaster(req, res, next) {
+  if (isMaster(req.usuario)) return next();
+  return res.status(403).json({ error: 'Operação exclusiva do perfil Master.' });
+}
+
 module.exports = {
-  authMiddleware, requirePagina, requireAdmin,
-  gerarToken, isAdmin, temPagina,
+  authMiddleware, requirePagina, requireAdmin, requireMaster,
+  gerarToken, isAdmin, isMaster, temPagina,
+  PERFIL_MASTER, TODAS_PAGINAS, PAGINAS_MASTER,
   JWT_SECRET, JWT_EXPIRES, PAGINAS,
 };

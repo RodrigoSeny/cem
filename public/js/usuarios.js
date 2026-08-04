@@ -107,8 +107,10 @@ const Usuarios = {
   },
 
   montarSelects() {
+    // O perfil Master só é oferecido a quem já é Master
     document.getElementById('usuarioPerfil').innerHTML = this.perfis
       .filter(p => p.id !== 'PERFIL-RESPONSAVEL')
+      .filter(p => p.id !== 'PERFIL-MASTER' || Sessao.ehMaster())
       .map(p => `<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
 
     document.getElementById('usuarioFuncionario').innerHTML =
@@ -246,7 +248,9 @@ const Perfis = {
         <div style="display:flex;align-items:center;justify-content:space-between;padding-top:11px;border-top:1px solid var(--border)">
           <span style="font-size:11.5px;color:var(--txt3)">${p.qtd_usuarios} usuário(s)</span>
           <div>
-            ${p.id === 'PERFIL-MASTER' ? '' : `<button class="btn-ico" onclick="Perfis.abrirEdicao('${p.id}')" title="Editar">✏️</button>`}
+            ${p.id === 'PERFIL-MASTER'
+              ? '<span class="badge badge-gold" title="Acesso total por definição">acesso total</span>'
+              : `<button class="btn-ico" onclick="Perfis.abrirEdicao('${p.id}')" title="Editar">✏️</button>`}
             ${p.sistema ? '' : `<button class="btn-ico perigo" onclick="Perfis.excluir('${p.id}')" title="Excluir">🗑️</button>`}
           </div>
         </div>

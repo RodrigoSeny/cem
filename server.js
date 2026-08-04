@@ -57,6 +57,7 @@ app.use('/api/ocorrencias',   require('./src/routes/ocorrencias.routes').router)
 app.use('/api/mensagens',     require('./src/routes/mensagens.routes').router);
 app.use('/api/financeiro',    require('./src/routes/financeiro.routes').router);
 app.use('/api/municipios',    require('./src/routes/municipios.routes'));
+app.use('/api/sql',           require('./src/routes/sql.routes'));
 app.use('/api/usuarios',      rotasUsuarios);
 app.use('/api/perfis',        rotasPerfis);
 

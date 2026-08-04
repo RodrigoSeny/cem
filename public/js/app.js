@@ -19,6 +19,7 @@ const PAGINAS_APP = [
   { id: 'usuarios',       rotulo: 'Usuários',          ico: '👥', permissao: 'usuarios' },
   { id: 'perfis',         rotulo: 'Perfis de Acesso',  ico: '🛡️', permissao: 'usuarios' },
   { id: 'configuracoes',  rotulo: 'Configurações',     ico: '⚙️', permissao: 'configuracoes' },
+  { id: 'sql-manager',    rotulo: 'SQL Manager',       ico: '🗄️', permissao: 'sql-manager' },
 ];
 
 // Carregadores por página (preenchidos pelos módulos)

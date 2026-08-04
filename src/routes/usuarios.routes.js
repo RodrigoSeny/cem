@@ -4,17 +4,24 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db, log, agora } = require('../db');
-const { rota, tratarErro } = require('../util');
-const { PAGINAS } = require('../auth');
+const { rota } = require('../util');
+const { PAGINAS, isMaster, PERFIL_MASTER, PAGINAS_MASTER } = require('../auth');
 
 const usuarios = express.Router();
 const perfis = express.Router();
 
 const CONFLITOS = { 'usuarios.login': 'Já existe um usuário com este login.' };
 
+/** Só o Master enxerga e manipula o perfil Master e quem o usa. */
+const soMaster = (req, res) =>
+  res.status(403).json({ error: 'O perfil Master é gerenciado apenas por um usuário Master.' });
+
 // ══════════════════════ USUÁRIOS ══════════════════════════════
 
 usuarios.get('/', rota((req, res) => {
+  // Para quem não é Master, os usuários Master simplesmente não existem
+  const filtro = isMaster(req.usuario) ? '' : `WHERE u.perfil_id IS NOT '${PERFIL_MASTER}'`;
+
   res.json(db.prepare(`
     SELECT u.id, u.nome, u.login, u.email, u.tipo, u.ativo, u.ultimo_login,
            u.precisa_trocar_senha, u.perfil_id, p.nome AS perfil_nome,
@@ -24,6 +31,7 @@ usuarios.get('/', rota((req, res) => {
       LEFT JOIN perfis p        ON p.id = u.perfil_id
       LEFT JOIN funcionarios f  ON f.id = u.funcionario_id
       LEFT JOIN responsaveis r  ON r.id = u.responsavel_id
+      ${filtro}
      ORDER BY u.tipo, u.nome`).all());
 }));
 
@@ -38,6 +46,8 @@ usuarios.post('/', rota((req, res) => {
   if (tipo === 'funcionario' && !req.body.perfil_id) {
     return res.status(400).json({ error: 'Selecione o perfil de acesso do funcionário.' });
   }
+  // Só um Master cria outro Master
+  if (req.body.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
   if (tipo === 'responsavel' && !req.body.responsavel_id) {
     return res.status(400).json({ error: 'Selecione o responsável vinculado a este acesso.' });
   }
@@ -63,8 +73,24 @@ usuarios.put('/:id', rota((req, res) => {
   const u = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-  if (u.perfil_id === 'PERFIL-MASTER' && req.body.ativo === 0 && req.usuario.id !== u.id) {
-    return res.status(403).json({ error: 'O usuário master não pode ser desativado.' });
+  // Mexer num usuário Master, ou promover alguém a Master, é coisa de Master
+  if (u.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
+  if (req.body.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
+
+  // Não deixar o sistema ficar sem nenhum Master ativo
+  if (u.perfil_id === PERFIL_MASTER) {
+    const virandoOutroPerfil = req.body.perfil_id && req.body.perfil_id !== PERFIL_MASTER;
+    const desativando = req.body.ativo !== undefined && !req.body.ativo;
+    if (virandoOutroPerfil || desativando) {
+      const ativos = db.prepare(
+        `SELECT COUNT(*) c FROM usuarios WHERE perfil_id = ? AND ativo = 1 AND id <> ?`
+      ).get(PERFIL_MASTER, id).c;
+      if (!ativos) {
+        return res.status(409).json({
+          error: 'Este é o último Master ativo. Crie outro Master antes de desativar ou rebaixar este.',
+        });
+      }
+    }
   }
 
   db.prepare(`
@@ -87,9 +113,12 @@ usuarios.post('/:id/senha', rota((req, res) => {
   const id = Number(req.params.id);
   const senha = String(req.body.senha || '');
   if (senha.length < 6) return res.status(400).json({ error: 'A senha precisa ter ao menos 6 caracteres.' });
-  if (!db.prepare('SELECT id FROM usuarios WHERE id = ?').get(id)) {
-    return res.status(404).json({ error: 'Usuário não encontrado.' });
-  }
+
+  const alvo = db.prepare('SELECT perfil_id FROM usuarios WHERE id = ?').get(id);
+  if (!alvo) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  // Redefinir a senha de um Master daria acesso total a quem não é Master
+  if (alvo.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
   db.prepare('UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 1, tentativas = 0, bloqueado_ate = NULL, atualizado_em = ? WHERE id = ?')
     .run(bcrypt.hashSync(senha, 10), agora(), id);
   log(req, 'redefinir-senha', 'usuarios', id, null);
@@ -100,8 +129,18 @@ usuarios.delete('/:id', rota((req, res) => {
   const id = Number(req.params.id);
   const u = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ error: 'Usuário não encontrado.' });
-  if (u.perfil_id === 'PERFIL-MASTER') return res.status(403).json({ error: 'O usuário master não pode ser excluído.' });
   if (u.id === req.usuario.id) return res.status(403).json({ error: 'Você não pode excluir o próprio acesso.' });
+
+  if (u.perfil_id === PERFIL_MASTER) {
+    // Master só é excluído por outro Master, e nunca o último
+    if (!isMaster(req.usuario)) return soMaster(req, res);
+    const ativos = db.prepare(
+      `SELECT COUNT(*) c FROM usuarios WHERE perfil_id = ? AND ativo = 1 AND id <> ?`
+    ).get(PERFIL_MASTER, id).c;
+    if (!ativos) {
+      return res.status(409).json({ error: 'Este é o último Master ativo — o sistema ficaria sem administrador.' });
+    }
+  }
 
   db.prepare('DELETE FROM usuarios WHERE id = ?').run(id);
   log(req, 'excluir', 'usuarios', id, u.login);
@@ -110,12 +149,17 @@ usuarios.delete('/:id', rota((req, res) => {
 
 // ══════════════════════ PERFIS ════════════════════════════════
 
-perfis.get('/paginas', rota((req, res) => res.json(PAGINAS)));
+// Páginas exclusivas do Master não aparecem na montagem de perfis
+perfis.get('/paginas', rota((req, res) => {
+  const lista = isMaster(req.usuario) ? PAGINAS : PAGINAS.filter(p => !p.master);
+  res.json(lista);
+}));
 
 perfis.get('/', rota((req, res) => {
+  const filtro = isMaster(req.usuario) ? '' : `WHERE p.id IS NOT '${PERFIL_MASTER}'`;
   const linhas = db.prepare(`
     SELECT p.*, (SELECT COUNT(*) FROM usuarios u WHERE u.perfil_id = p.id) AS qtd_usuarios
-      FROM perfis p ORDER BY p.sistema DESC, p.nome`).all();
+      FROM perfis p ${filtro} ORDER BY p.sistema DESC, p.nome`).all();
   res.json(linhas.map(p => ({ ...p, paginas: JSON.parse(p.paginas || '[]') })));
 }));
 
@@ -125,7 +169,11 @@ perfis.post('/', rota((req, res) => {
 
   const semAcento = nome.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const id = 'PERFIL-' + semAcento.replace(/[^A-Z0-9]+/g, '-').slice(0, 24);
-  const paginas = JSON.stringify(Array.isArray(req.body.paginas) ? req.body.paginas : []);
+  if (id === PERFIL_MASTER) return res.status(409).json({ error: 'Este nome é reservado ao perfil do sistema.' });
+
+  // Ninguém cria um perfil com página exclusiva do Master
+  const pedidas = Array.isArray(req.body.paginas) ? req.body.paginas : [];
+  const paginas = JSON.stringify(pedidas.filter(p => !PAGINAS_MASTER.includes(p)));
 
   db.prepare('INSERT INTO perfis (id, nome, descricao, paginas, sistema) VALUES (?, ?, ?, ?, 0)')
     .run(id, nome, req.body.descricao || null, paginas);
@@ -136,9 +184,14 @@ perfis.post('/', rota((req, res) => {
 perfis.put('/:id', rota((req, res) => {
   const p = db.prepare('SELECT * FROM perfis WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Perfil não encontrado.' });
-  if (p.id === 'PERFIL-MASTER') return res.status(403).json({ error: 'O perfil Master não pode ser alterado.' });
+  if (p.id === PERFIL_MASTER) {
+    if (!isMaster(req.usuario)) return soMaster(req, res);
+    return res.status(403).json({ error: 'O perfil Master tem acesso total por definição e não é editável.' });
+  }
 
-  const paginas = Array.isArray(req.body.paginas) ? JSON.stringify(req.body.paginas) : p.paginas;
+  const paginas = Array.isArray(req.body.paginas)
+    ? JSON.stringify(req.body.paginas.filter(x => !PAGINAS_MASTER.includes(x)))
+    : p.paginas;
   db.prepare('UPDATE perfis SET nome = ?, descricao = ?, paginas = ? WHERE id = ?')
     .run(req.body.nome ?? p.nome, req.body.descricao ?? p.descricao, paginas, p.id);
   log(req, 'atualizar', 'perfis', null, p.nome);
@@ -148,6 +201,7 @@ perfis.put('/:id', rota((req, res) => {
 perfis.delete('/:id', rota((req, res) => {
   const p = db.prepare('SELECT * FROM perfis WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Perfil não encontrado.' });
+  if (p.id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
   if (p.sistema) return res.status(403).json({ error: 'Perfis do sistema não podem ser excluídos.' });
 
   const uso = db.prepare('SELECT COUNT(*) c FROM usuarios WHERE perfil_id = ?').get(p.id).c;
