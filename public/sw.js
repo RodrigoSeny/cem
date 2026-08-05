@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════
 // Ao publicar uma versão nova do app, incremente este número: o activate
 // abaixo apaga os caches antigos e o usuário recebe os arquivos atualizados.
-const CACHE = 'cem-app-v5';
+const CACHE = 'cem-app-v6';
 const ARQUIVOS = [
   '/app',
   '/app-login',
