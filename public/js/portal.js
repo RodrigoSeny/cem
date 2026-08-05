@@ -29,6 +29,8 @@ function irTela(tela) {
   if (tela === 'consulta') Portal.renderConsulta();
   if (tela === 'conta') Portal.renderConta();
   if (tela === 'mensagens') Portal.renderMensagens();
+  if (tela === 'financeiro') Portal.renderFinanceiro();
+  if (tela === 'ocorrencias') Portal.renderOcorrencias();
 }
 
 document.querySelectorAll('.rodape button').forEach(b => {
@@ -73,11 +75,15 @@ const Portal = {
 
     document.getElementById('appSub').textContent =
       USUARIO.tipo === 'responsavel' ? 'Portal dos responsáveis' : 'Consulta da equipe';
-    document.getElementById('rotuloConsulta').textContent =
-      USUARIO.tipo === 'responsavel' ? 'Meus filhos' : 'Consultar';
+    document.getElementById('rotuloConsulta').textContent = 'Consultar';
 
-    // A caixa de mensagens é só do responsável
-    if (USUARIO.tipo !== 'responsavel') {
+    if (USUARIO.tipo === 'responsavel') {
+      // Responsáveis usam Financeiro e Histórico no lugar de Consultar e Mensagens no rodapé
+      document.getElementById('btnConsulta').style.display = 'none';
+      document.getElementById('btnFinanceiro').style.display = '';
+      document.getElementById('btnOcorrencias').style.display = '';
+    } else {
+      // Funcionários não têm caixa de mensagens
       document.getElementById('btnMensagens').style.display = 'none';
     }
 
@@ -195,9 +201,7 @@ const Portal = {
       <div class="titulo-secao">Precisa falar com a escola?</div>
       <div class="cartao">
         <div class="info-linha"><span class="rot">Secretaria</span><span class="val">
-          ${(escolaDados.whatsapp || escolaDados.telefone)
-            ? `<a href="tel:${escapar(String(escolaDados.whatsapp || escolaDados.telefone).replace(/\D/g, ''))}">📞 ${telefoneBR(escolaDados.whatsapp || escolaDados.telefone)}</a>`
-            : 'telefone não cadastrado'}
+          ${this._linkSecretaria()}
           ${escolaDados.email ? `<br><a href="mailto:${escapar(escolaDados.email)}">✉️ ${escapar(escolaDados.email)}</a>` : ''}
         </span></div>
         <div class="info-linha"><span class="rot">Seus dados</span>
@@ -489,6 +493,81 @@ const Portal = {
       botao.disabled = false;
       botao.textContent = 'Estou ciente';
       toastErro(e.message);
+    }
+  },
+
+  // ── Link da secretaria (WhatsApp ou tel:) ───────────────────
+  _linkSecretaria() {
+    const raw = escolaDados.whatsapp || escolaDados.telefone || '';
+    const num = String(raw).replace(/\D/g, '');
+    if (!num) return 'telefone não cadastrado';
+    if (escolaDados.whatsapp) {
+      const waNum = num.startsWith('55') ? num : '55' + num;
+      const waMsg = encodeURIComponent(`Olá, ${escolaDados.nome_fantasia || 'escola'}!`);
+      return `<a href="https://wa.me/${waNum}?text=${waMsg}" target="_blank" rel="noopener">💬 ${telefoneBR(raw)}</a>`;
+    }
+    return `<a href="tel:${num}">📞 ${telefoneBR(raw)}</a>`;
+  },
+
+  // ── Financeiro (tela dedicada — responsável) ─────────────────
+  async renderFinanceiro() {
+    const alvo = document.getElementById('financeiroConteudo');
+    alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
+    const alunos = inicioDados?.alunos || [];
+    if (!alunos.length) {
+      alvo.innerHTML = '<div class="vazio"><span class="ico">💰</span><div class="titulo">Nenhum aluno vinculado</div></div>';
+      return;
+    }
+    try {
+      const resultados = await Promise.all(
+        alunos.map(a => Api.get(`/api/portal/alunos/${a.id}/financeiro`).catch(() => null))
+      );
+      let html = '';
+      for (let i = 0; i < alunos.length; i++) {
+        const a = alunos[i];
+        const f = resultados[i];
+        html += `<div class="titulo-secao">${escapar(a.nome)}</div>`;
+        const bloco = f ? this.blocoFinanceiro(f) : '';
+        html += bloco || '<div class="cartao"><div style="font-size:12.5px;color:var(--green)">✅ Nenhuma parcela em aberto.</div></div>';
+      }
+      alvo.innerHTML = html;
+    } catch (e) {
+      alvo.innerHTML = `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
+    }
+  },
+
+  // ── Ocorrências — histórico (tela dedicada — responsável) ────
+  async renderOcorrencias() {
+    const alvo = document.getElementById('ocorrenciasConteudo');
+    alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
+    const alunos = inicioDados?.alunos || [];
+    if (!alunos.length) {
+      alvo.innerHTML = '<div class="vazio"><span class="ico">📌</span><div class="titulo">Nenhum aluno vinculado</div></div>';
+      return;
+    }
+    try {
+      const resultados = await Promise.all(
+        alunos.map(a => Api.get(`/api/portal/alunos/${a.id}/ocorrencias`).catch(() => []))
+      );
+      let blocos = '';
+      let pendentes = 0;
+      for (let i = 0; i < alunos.length; i++) {
+        const lista = resultados[i];
+        if (!lista.length) continue;
+        pendentes += lista.filter(o => o.exige_ciencia && !o.ciente_em).length;
+        blocos += `<div class="titulo-secao">${escapar(alunos[i].nome)}</div>` + this.blocoOcorrencias(lista);
+      }
+      const aviso = pendentes > 0
+        ? `<div class="cartao" style="border-color:var(--gold);background:var(--gold-soft);margin-bottom:4px">
+            <div class="aluno-nome">📣 ${pendentes} ocorrência(s) aguardando sua ciência</div>
+            <div class="aluno-info" style="margin-top:4px">Toque em "Estou ciente" abaixo para confirmar.</div>
+           </div>`
+        : '';
+      alvo.innerHTML = aviso + (blocos || `<div class="vazio"><span class="ico">📌</span>
+        <div class="titulo">Nenhuma ocorrência compartilhada</div>
+        <div class="sub">A escola compartilhará ocorrências relevantes aqui.</div></div>`);
+    } catch (e) {
+      alvo.innerHTML = `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
     }
   },
 

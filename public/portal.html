@@ -98,7 +98,7 @@
       color: var(--txt3); font-family: var(--font);
       display: flex; flex-direction: column; align-items: center; gap: 3px;
       padding: 6px 2px; border-radius: 11px;
-      font-size: 10.5px; font-weight: 600;
+      font-size: 9.5px; font-weight: 600;
     }
     .rodape button .ico { font-size: 19px; line-height: 1; }
     .rodape button.active { color: var(--gold); background: var(--gold-soft); }
@@ -208,6 +208,16 @@
   <section class="tela" id="tela-conta">
     <div id="contaConteudo"></div>
   </section>
+
+  <!-- Financeiro — responsável -->
+  <section class="tela" id="tela-financeiro">
+    <div id="financeiroConteudo"></div>
+  </section>
+
+  <!-- Histórico de ocorrências — responsável -->
+  <section class="tela" id="tela-ocorrencias">
+    <div id="ocorrenciasConteudo"></div>
+  </section>
 </div>
 
 <nav class="rodape" id="rodapeNav">
@@ -215,7 +225,9 @@
   <button data-tela="mensagens" id="btnMensagens">
     <span class="ico" style="position:relative">✉️<span class="selo" id="seloMensagens">0</span></span> Mensagens
   </button>
-  <button data-tela="consulta"><span class="ico">🔎</span> <span id="rotuloConsulta">Consultar</span></button>
+  <button data-tela="consulta" id="btnConsulta"><span class="ico">🔎</span> <span id="rotuloConsulta">Consultar</span></button>
+  <button data-tela="financeiro" id="btnFinanceiro" style="display:none"><span class="ico">💰</span> Financeiro</button>
+  <button data-tela="ocorrencias" id="btnOcorrencias" style="display:none"><span class="ico">📌</span> Histórico</button>
   <button data-tela="conta"><span class="ico">👤</span> Conta</button>
 </nav>
 
