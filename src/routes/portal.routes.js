@@ -83,6 +83,24 @@ router.get('/inicio', rota((req, res) => {
          AND m.aluno_id IN (${alunos.map(() => '?').join(',')})`)
       .get(...alunos.map(a => a.id)) : { parcelas: 0, total: 0 };
 
+    // Ocorrências com ciência pendente (badge do botão Histórico)
+    const ocorr_pendentes = alunos.length ? db.prepare(`
+      SELECT COUNT(*) c FROM ocorrencias o
+        JOIN aluno_responsaveis ar ON ar.aluno_id = o.aluno_id AND ar.responsavel_id = ?
+       WHERE o.visivel_responsavel = 1 AND o.exige_ciencia = 1
+         AND NOT EXISTS (
+           SELECT 1 FROM ocorrencia_ciencias oc
+            WHERE oc.ocorrencia_id = o.id AND oc.responsavel_id = ?
+         )`).get(u.responsavel_id, u.responsavel_id).c : 0;
+
+    // Mensagens globais não lidas (sem aluno específico — comunicados da escola)
+    const mensagens_globais = db.prepare(`
+      SELECT m.id, m.titulo, m.criado_em
+        FROM mensagem_destinatarios d
+        JOIN mensagens m ON m.id = d.mensagem_id
+       WHERE d.responsavel_id = ? AND d.aluno_id IS NULL AND d.lido_em IS NULL
+       ORDER BY m.id DESC LIMIT 5`).all(u.responsavel_id);
+
     return res.json({
       perfil: 'responsavel',
       nome: u.nome,
@@ -91,6 +109,8 @@ router.get('/inicio', rota((req, res) => {
       nao_lidas: naoLidas(u.responsavel_id),
       aguardando_ciencia: aguardandoCiencia(u.responsavel_id),
       financeiro_vencido: { parcelas: financeiro.parcelas, total: Number(Number(financeiro.total).toFixed(2)) },
+      ocorr_pendentes,
+      mensagens_globais,
     });
   }
 

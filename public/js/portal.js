@@ -8,6 +8,7 @@
 const USUARIO = Sessao.exigir();
 let inicioDados = null;
 let escolaDados = {};
+let alunoSelecionado = null;  // filho cujo contexto está ativo no app
 
 // ── Tema ──────────────────────────────────────────────────────
 function alternarTemaApp() {
@@ -122,6 +123,35 @@ const Portal = {
       return;
     }
 
+    if (inicioDados.perfil === 'responsavel') {
+      const alunos = inicioDados.alunos || [];
+      // Filho único → seleciona automaticamente
+      if (alunos.length === 1) {
+        alunoSelecionado = alunos[0];
+      } else if (alunoSelecionado) {
+        // Garante que o filho ainda está vinculado
+        if (!alunos.find(a => a.id === alunoSelecionado.id)) alunoSelecionado = null;
+      }
+
+      // Badges de Financeiro e Histórico
+      const parcVenc = inicioDados.financeiro_vencido?.parcelas || 0;
+      const seloFin = document.getElementById('seloFinanceiro');
+      if (seloFin) {
+        seloFin.textContent = parcVenc > 9 ? '9+' : parcVenc;
+        seloFin.classList.toggle('mostrar', parcVenc > 0);
+        seloFin.style.background = 'var(--red)';
+        seloFin.style.color = '#fff';
+      }
+      const ocorrPend = inicioDados.ocorr_pendentes || 0;
+      const seloOcorr = document.getElementById('seloOcorrencias');
+      if (seloOcorr) {
+        seloOcorr.textContent = ocorrPend > 9 ? '9+' : ocorrPend;
+        seloOcorr.classList.toggle('mostrar', ocorrPend > 0);
+        seloOcorr.style.background = 'var(--gold)';
+        seloOcorr.style.color = '#1A1A1A';
+      }
+    }
+
     const hora = new Date().getHours();
     const parte = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
@@ -133,12 +163,16 @@ const Portal = {
   inicioResponsavel(d, parte) {
     const alunos = d.alunos || [];
     const venc = d.financeiro_vencido || { parcelas: 0, total: 0 };
+    const temVarios = alunos.length > 1;
+    const globais = d.mensagens_globais || [];
 
     return `
       <div class="ola">
         <h2>${parte}, ${escapar(nomeCurto(d.nome))}!</h2>
         <p>${alunos.length
-            ? `Você acompanha ${alunos.length} aluno${alunos.length === 1 ? '' : 's'} no Centro Educacional Milezi.`
+            ? temVarios
+              ? `Você acompanha ${alunos.length} filhos. Selecione um para ver os dados.`
+              : `Você acompanha ${alunos.length} aluno no Centro Educacional Milezi.`
             : 'Ainda não há alunos vinculados ao seu cadastro. Procure a secretaria.'}</p>
       </div>
 
@@ -165,38 +199,57 @@ const Portal = {
         </div>` : ''}
 
       ${venc.parcelas > 0 ? `
-        <div class="cartao" style="border-color:rgba(255,94,94,.4)">
+        <div class="cartao toque" onclick="irTela('financeiro')" style="border-color:rgba(255,94,94,.4)">
           <div class="aluno-linha">
             <div class="aluno-av" style="background:rgba(255,94,94,.15);color:var(--red)">💰</div>
             <div style="flex:1">
               <div class="aluno-nome">${venc.parcelas} parcela(s) em atraso</div>
-              <div class="aluno-info">Total de ${moedaBR(venc.total)} — procure a secretaria</div>
-            </div>
-          </div>
-        </div>` : ''}
-
-      <div class="titulo-secao">Meus filhos</div>
-      ${alunos.length ? alunos.map(a => `
-        <div class="cartao toque" onclick="Portal.verAluno(${a.id})">
-          <div class="aluno-linha">
-            <div class="aluno-av">${iniciais(a.nome)}</div>
-            <div style="flex:1;min-width:0">
-              <div class="aluno-nome">${escapar(a.nome)}</div>
-              <div class="aluno-info">
-                ${escapar(a.turma_nome || 'Turma a definir')}
-                ${a.turma_turno ? ' · ' + (TURNOS[a.turma_turno] || a.turma_turno) : ''}
-              </div>
-              <div class="chips">
-                ${badgeSituacao(a.situacao)}
-                ${a.idade != null ? `<span class="badge badge-cinza">${a.idade} anos</span>` : ''}
-                ${a.parentesco ? `<span class="badge badge-gold">${escapar(a.parentesco)}</span>` : ''}
-              </div>
+              <div class="aluno-info">Total de ${moedaBR(venc.total)} — toque para ver</div>
             </div>
             <span class="seta">›</span>
           </div>
-        </div>`).join('')
-        : `<div class="vazio"><span class="ico">🎓</span><div class="titulo">Nenhum aluno vinculado</div>
-             <div class="sub">A secretaria vincula os alunos ao seu cadastro.</div></div>`}
+        </div>` : ''}
+
+      ${globais.length ? `
+        <div class="titulo-secao">Comunicados gerais</div>
+        ${globais.map(m => `
+          <div class="cartao toque" onclick="irTela('mensagens')" style="border-left:3px solid var(--gold)">
+            <div class="aluno-linha">
+              <div class="aluno-av" style="background:var(--gold-soft)">📢</div>
+              <div style="flex:1;min-width:0">
+                <div class="aluno-nome">${escapar(m.titulo)}</div>
+                <div class="aluno-info">${dataHoraBR(m.criado_em)} · comunicado geral</div>
+              </div>
+              <span class="seta">›</span>
+            </div>
+          </div>`).join('')}` : ''}
+
+      <div class="titulo-secao">${temVarios ? 'Selecione um filho' : 'Meus filhos'}</div>
+      ${alunos.length ? alunos.map(a => {
+        const ativo = alunoSelecionado?.id === a.id;
+        return `
+          <div class="cartao toque${ativo ? ' cartao-ativo' : ''}" onclick="Portal.verAluno(${a.id})">
+            <div class="aluno-linha">
+              <div class="aluno-av">${iniciais(a.nome)}</div>
+              <div style="flex:1;min-width:0">
+                <div class="aluno-nome">${escapar(a.nome)}</div>
+                <div class="aluno-info">
+                  ${escapar(a.turma_nome || 'Turma a definir')}
+                  ${a.turma_turno ? ' · ' + (TURNOS[a.turma_turno] || a.turma_turno) : ''}
+                </div>
+                <div class="chips">
+                  ${badgeSituacao(a.situacao)}
+                  ${a.idade != null ? `<span class="badge badge-cinza">${a.idade} anos</span>` : ''}
+                  ${a.parentesco ? `<span class="badge badge-gold">${escapar(a.parentesco)}</span>` : ''}
+                  ${ativo ? '<span class="badge badge-green">ativo</span>' : ''}
+                </div>
+              </div>
+              <span class="seta">›</span>
+            </div>
+          </div>`;
+      }).join('')
+      : `<div class="vazio"><span class="ico">🎓</span><div class="titulo">Nenhum aluno vinculado</div>
+           <div class="sub">A secretaria vincula os alunos ao seu cadastro.</div></div>`}
 
       <div class="titulo-secao">Precisa falar com a escola?</div>
       <div class="cartao">
@@ -326,6 +379,11 @@ const Portal = {
 
   // ── Ficha do aluno ──────────────────────────────────────────
   async verAluno(id) {
+    // Define o contexto per-child para Financeiro e Histórico
+    if (USUARIO.tipo === 'responsavel' && inicioDados?.alunos) {
+      const a = inicioDados.alunos.find(a => a.id === id);
+      if (a) alunoSelecionado = a;
+    }
     irTela('aluno');
     const alvo = document.getElementById('alunoConteudo');
     alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
@@ -496,6 +554,67 @@ const Portal = {
     }
   },
 
+  // ── Seleção de filho (contexto per-child) ───────────────────
+  /** Define o filho ativo e re-renderiza a tela atual se for Financeiro/Histórico. */
+  selecionarAluno(id) {
+    alunoSelecionado = inicioDados?.alunos?.find(a => a.id === id) || null;
+    const telAtiva = document.querySelector('.tela.active')?.id?.replace('tela-', '');
+    if (telAtiva === 'financeiro') this.renderFinanceiro();
+    else if (telAtiva === 'ocorrencias') this.renderOcorrencias();
+  },
+
+  /** Remove o filho ativo e mostra o picker na tela atual. */
+  trocarFilho() {
+    if ((inicioDados?.alunos?.length || 0) <= 1) return;
+    alunoSelecionado = null;
+    const telAtiva = document.querySelector('.tela.active')?.id?.replace('tela-', '');
+    if (telAtiva === 'financeiro') this.renderFinanceiro();
+    else if (telAtiva === 'ocorrencias') this.renderOcorrencias();
+    else irTela('inicio');
+  },
+
+  /** Cabeçalho de contexto exibido no topo de Financeiro e Histórico. */
+  _childHeader() {
+    if (!alunoSelecionado) return '';
+    const temVarios = (inicioDados?.alunos?.length || 0) > 1;
+    return `
+      <div style="background:var(--gold-soft);border:1px solid rgba(242,183,5,.4);border-radius:14px;
+                  padding:11px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div class="aluno-av" style="width:38px;height:38px;font-size:13px;flex-shrink:0">${iniciais(alunoSelecionado.nome)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${escapar(alunoSelecionado.nome)}</div>
+          <div style="font-size:11px;color:var(--txt2)">${escapar(alunoSelecionado.turma_nome || 'Turma a definir')}</div>
+        </div>
+        ${temVarios
+          ? `<button onclick="Portal.trocarFilho()"
+               style="background:none;border:1px solid var(--gold);color:var(--gold);
+                      font-family:var(--font);font-size:11.5px;font-weight:700;
+                      cursor:pointer;border-radius:8px;padding:5px 10px">trocar</button>`
+          : ''}
+      </div>`;
+  },
+
+  /** Picker inline de filhos (usado quando nenhum está selecionado nas telas de detalhe). */
+  _pickerFilhos(instrucao) {
+    const alunos = inicioDados?.alunos || [];
+    return `
+      <div class="ola" style="margin-bottom:16px">
+        <h2 style="font-size:15px">Selecione um filho</h2>
+        <p>${instrucao || 'Escolha qual filho você deseja consultar.'}</p>
+      </div>
+      ${alunos.map(a => `
+        <div class="cartao toque" onclick="Portal.selecionarAluno(${a.id})">
+          <div class="aluno-linha">
+            <div class="aluno-av">${iniciais(a.nome)}</div>
+            <div style="flex:1;min-width:0">
+              <div class="aluno-nome">${escapar(a.nome)}</div>
+              <div class="aluno-info">${escapar(a.turma_nome || 'Turma a definir')}</div>
+            </div>
+            <span class="seta">›</span>
+          </div>
+        </div>`).join('')}`;
+  },
+
   // ── Link da secretaria (WhatsApp ou tel:) ───────────────────
   _linkSecretaria() {
     const raw = escolaDados.whatsapp || escolaDados.telefone || '';
@@ -513,26 +632,25 @@ const Portal = {
   async renderFinanceiro() {
     const alvo = document.getElementById('financeiroConteudo');
     alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
+
     const alunos = inicioDados?.alunos || [];
     if (!alunos.length) {
       alvo.innerHTML = '<div class="vazio"><span class="ico">💰</span><div class="titulo">Nenhum aluno vinculado</div></div>';
       return;
     }
+    // Múltiplos filhos sem filho selecionado → mostra picker inline
+    if (!alunoSelecionado && alunos.length > 1) {
+      alvo.innerHTML = this._pickerFilhos('Escolha o filho para ver as mensalidades.');
+      return;
+    }
     try {
-      const resultados = await Promise.all(
-        alunos.map(a => Api.get(`/api/portal/alunos/${a.id}/financeiro`).catch(() => null))
-      );
-      let html = '';
-      for (let i = 0; i < alunos.length; i++) {
-        const a = alunos[i];
-        const f = resultados[i];
-        html += `<div class="titulo-secao">${escapar(a.nome)}</div>`;
-        const bloco = f ? this.blocoFinanceiro(f) : '';
-        html += bloco || '<div class="cartao"><div style="font-size:12.5px;color:var(--green)">✅ Nenhuma parcela em aberto.</div></div>';
-      }
-      alvo.innerHTML = html;
+      const f = await Api.get(`/api/portal/alunos/${alunoSelecionado.id}/financeiro`);
+      const bloco = this.blocoFinanceiro(f);
+      alvo.innerHTML = this._childHeader()
+        + (bloco || '<div class="cartao"><div style="font-size:12.5px;color:var(--green)">✅ Nenhuma parcela em aberto.</div></div>');
     } catch (e) {
-      alvo.innerHTML = `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
+      alvo.innerHTML = this._childHeader()
+        + `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
     }
   },
 
@@ -540,34 +658,33 @@ const Portal = {
   async renderOcorrencias() {
     const alvo = document.getElementById('ocorrenciasConteudo');
     alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
+
     const alunos = inicioDados?.alunos || [];
     if (!alunos.length) {
       alvo.innerHTML = '<div class="vazio"><span class="ico">📌</span><div class="titulo">Nenhum aluno vinculado</div></div>';
       return;
     }
+    if (!alunoSelecionado && alunos.length > 1) {
+      alvo.innerHTML = this._pickerFilhos('Escolha o filho para ver o histórico de ocorrências.');
+      return;
+    }
     try {
-      const resultados = await Promise.all(
-        alunos.map(a => Api.get(`/api/portal/alunos/${a.id}/ocorrencias`).catch(() => []))
-      );
-      let blocos = '';
-      let pendentes = 0;
-      for (let i = 0; i < alunos.length; i++) {
-        const lista = resultados[i];
-        if (!lista.length) continue;
-        pendentes += lista.filter(o => o.exige_ciencia && !o.ciente_em).length;
-        blocos += `<div class="titulo-secao">${escapar(alunos[i].nome)}</div>` + this.blocoOcorrencias(lista);
-      }
+      const lista = await Api.get(`/api/portal/alunos/${alunoSelecionado.id}/ocorrencias`);
+      const pendentes = lista.filter(o => o.exige_ciencia && !o.ciente_em).length;
       const aviso = pendentes > 0
         ? `<div class="cartao" style="border-color:var(--gold);background:var(--gold-soft);margin-bottom:4px">
             <div class="aluno-nome">📣 ${pendentes} ocorrência(s) aguardando sua ciência</div>
             <div class="aluno-info" style="margin-top:4px">Toque em "Estou ciente" abaixo para confirmar.</div>
            </div>`
         : '';
-      alvo.innerHTML = aviso + (blocos || `<div class="vazio"><span class="ico">📌</span>
-        <div class="titulo">Nenhuma ocorrência compartilhada</div>
-        <div class="sub">A escola compartilhará ocorrências relevantes aqui.</div></div>`);
+      alvo.innerHTML = this._childHeader() + aviso + (lista.length
+        ? this.blocoOcorrencias(lista)
+        : `<div class="vazio"><span class="ico">📌</span>
+            <div class="titulo">Nenhuma ocorrência compartilhada</div>
+            <div class="sub">A escola compartilhará ocorrências relevantes aqui.</div></div>`);
     } catch (e) {
-      alvo.innerHTML = `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
+      alvo.innerHTML = this._childHeader()
+        + `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
     }
   },
 

@@ -65,6 +65,7 @@
     }
     .cartao.toque { cursor: pointer; }
     .cartao.toque:active { transform: scale(.99); border-color: var(--gold); }
+    .cartao-ativo { border-color: var(--gold) !important; background: var(--gold-soft) !important; }
 
     .aluno-linha { display: flex; align-items: center; gap: 13px; }
     .aluno-av {
@@ -226,8 +227,8 @@
     <span class="ico" style="position:relative">✉️<span class="selo" id="seloMensagens">0</span></span> Mensagens
   </button>
   <button data-tela="consulta" id="btnConsulta"><span class="ico">🔎</span> <span id="rotuloConsulta">Consultar</span></button>
-  <button data-tela="financeiro" id="btnFinanceiro" style="display:none"><span class="ico">💰</span> Financeiro</button>
-  <button data-tela="ocorrencias" id="btnOcorrencias" style="display:none"><span class="ico">📌</span> Histórico</button>
+  <button data-tela="financeiro" id="btnFinanceiro" style="display:none"><span class="ico" style="position:relative">💰<span class="selo" id="seloFinanceiro">0</span></span> Financeiro</button>
+  <button data-tela="ocorrencias" id="btnOcorrencias" style="display:none"><span class="ico" style="position:relative">📌<span class="selo" id="seloOcorrencias">0</span></span> Histórico</button>
   <button data-tela="conta"><span class="ico">👤</span> Conta</button>
 </nav>
 
