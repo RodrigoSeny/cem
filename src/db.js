@@ -281,12 +281,23 @@ CREATE TABLE IF NOT EXISTS ocorrencias (
   local_ocorrencia     TEXT,
   providencia          TEXT,
   visivel_responsavel  INTEGER NOT NULL DEFAULT 0,
+  exige_ciencia        INTEGER NOT NULL DEFAULT 0,
   registrado_por       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
   registrado_nome      TEXT,
   criado_em            TEXT DEFAULT (datetime('now','localtime')),
   atualizado_em        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ocorr_aluno ON ocorrencias (aluno_id, data_ocorrencia);
+
+-- ── Ciências de ocorrências (responsável confirma leitura) ─────
+CREATE TABLE IF NOT EXISTS ocorrencia_ciencias (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  ocorrencia_id   INTEGER NOT NULL REFERENCES ocorrencias(id) ON DELETE CASCADE,
+  responsavel_id  INTEGER NOT NULL REFERENCES responsaveis(id) ON DELETE CASCADE,
+  ciente_em       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(ocorrencia_id, responsavel_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ocorr_cienc ON ocorrencia_ciencias (ocorrencia_id);
 
 -- ── Mensageria (escola → responsáveis) ────────────────────────
 CREATE TABLE IF NOT EXISTS mensagens (
@@ -631,6 +642,12 @@ function migrar() {
     });
     converter(semItens);
     console.log(`↗️  ${semItens.length} mensalidade(s) convertida(s) para o formato com itens.`);
+  }
+
+  // 4. Ocorrências passam a ter exige_ciencia.
+  if (!colunas('ocorrencias').includes('exige_ciencia')) {
+    db.exec(`ALTER TABLE ocorrencias ADD COLUMN exige_ciencia INTEGER NOT NULL DEFAULT 0`);
+    console.log('↗️  ocorrencias.exige_ciencia criada.');
   }
 }
 

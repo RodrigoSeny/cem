@@ -22,11 +22,24 @@ function naoLidas(responsavelId) {
 
 /** Quantas aguardam ciência. */
 function aguardandoCiencia(responsavelId) {
-  return db.prepare(`
+  const msgs = db.prepare(`
     SELECT COUNT(*) c
       FROM mensagem_destinatarios d
       JOIN mensagens m ON m.id = d.mensagem_id
      WHERE d.responsavel_id = ? AND m.exige_ciencia = 1 AND d.ciente_em IS NULL`).get(responsavelId).c;
+
+  // Ocorrências visíveis ao responsável que exigem ciência e ainda não foram confirmadas
+  const ocorr = db.prepare(`
+    SELECT COUNT(*) c
+      FROM ocorrencias o
+      JOIN aluno_responsaveis ar ON ar.aluno_id = o.aluno_id AND ar.responsavel_id = ?
+     WHERE o.visivel_responsavel = 1 AND o.exige_ciencia = 1
+       AND NOT EXISTS (
+         SELECT 1 FROM ocorrencia_ciencias oc
+          WHERE oc.ocorrencia_id = o.id AND oc.responsavel_id = ?
+       )`).get(responsavelId, responsavelId).c;
+
+  return msgs + ocorr;
 }
 
 /** IDs dos alunos que o responsável logado pode consultar. */
@@ -284,10 +297,14 @@ router.get('/alunos/:id/ocorrencias', rota((req, res) => {
   if (!podeVerAluno(req.usuario, id)) return res.status(403).json({ error: 'Você não tem acesso a este aluno.' });
 
   // Responsável vê apenas as ocorrências compartilhadas
-  const filtro = req.usuario.tipo === 'responsavel' ? 'AND o.visivel_responsavel = 1' : '';
+  const isResp = req.usuario.tipo === 'responsavel';
+  const filtro = isResp ? 'AND o.visivel_responsavel = 1' : '';
+  const respId = isResp ? req.usuario.responsavel_id : null;
+
   const linhas = db.prepare(`
     SELECT o.id, o.tipo, o.gravidade, o.titulo, o.descricao, o.data_ocorrencia,
            o.hora_ocorrencia, o.local_ocorrencia, o.providencia, o.registrado_nome,
+           o.exige_ciencia,
            (SELECT COUNT(*) FROM anexos an WHERE an.entidade = 'ocorrencia' AND an.entidade_id = o.id) AS qtd_anexos
       FROM ocorrencias o
      WHERE o.aluno_id = ? ${filtro}
@@ -297,8 +314,40 @@ router.get('/alunos/:id/ocorrencias', rota((req, res) => {
     o.anexos = db.prepare(`
       SELECT id, categoria, nome_original, mime FROM anexos
        WHERE entidade = 'ocorrencia' AND entidade_id = ?`).all(o.id);
+    if (respId && o.exige_ciencia) {
+      const c = db.prepare(
+        'SELECT ciente_em FROM ocorrencia_ciencias WHERE ocorrencia_id = ? AND responsavel_id = ?'
+      ).get(o.id, respId);
+      o.ciente_em = c ? c.ciente_em : null;
+    }
   }
   res.json(linhas);
+}));
+
+// ── POST /api/portal/ocorrencias/:id/ciente ───────────────────
+router.post('/ocorrencias/:id/ciente', rota((req, res) => {
+  const u = req.usuario;
+  if (u.tipo !== 'responsavel') return res.status(403).json({ error: 'Apenas responsáveis.' });
+
+  const id = Number(req.params.id);
+  const o = db.prepare(
+    'SELECT id FROM ocorrencias WHERE id = ? AND visivel_responsavel = 1 AND exige_ciencia = 1'
+  ).get(id);
+  if (!o) return res.status(404).json({ error: 'Ocorrência não encontrada.' });
+
+  const quando = agora();
+  db.prepare(`
+    INSERT INTO ocorrencia_ciencias (ocorrencia_id, responsavel_id, ciente_em)
+    VALUES (?, ?, ?)
+    ON CONFLICT(ocorrencia_id, responsavel_id) DO NOTHING`)
+    .run(id, u.responsavel_id, quando);
+
+  const c = db.prepare(
+    'SELECT ciente_em FROM ocorrencia_ciencias WHERE ocorrencia_id = ? AND responsavel_id = ?'
+  ).get(id, u.responsavel_id);
+
+  log(req, 'ciencia', 'ocorrencias', id, `Ciência de ${u.nome}`);
+  res.json({ ok: true, ciente_em: c.ciente_em });
 }));
 
 // ══════════════════════ FINANCEIRO ════════════════════════════

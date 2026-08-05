@@ -141,8 +141,8 @@ const Portal = {
           <div class="aluno-linha">
             <div class="aluno-av">📣</div>
             <div style="flex:1">
-              <div class="aluno-nome">${d.aguardando_ciencia} comunicado(s) aguardando sua ciência</div>
-              <div class="aluno-info">Toque para ler e confirmar</div>
+              <div class="aluno-nome">${d.aguardando_ciencia} item(ns) aguardando sua ciência</div>
+              <div class="aluno-info">Toque para ver mensagens e ocorrências</div>
             </div>
             <span class="seta">›</span>
           </div>
@@ -452,7 +452,7 @@ const Portal = {
     return `
       <div class="titulo-secao">Histórico compartilhado</div>
       ${lista.map(o => `
-        <div class="cartao">
+        <div class="cartao" id="ocorr-card-${o.id}">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
             <span class="mono" style="font-size:11.5px;color:var(--txt2)">${dataBR(o.data_ocorrencia)}${o.hora_ocorrencia ? ' ' + escapar(o.hora_ocorrencia) : ''}</span>
             ${badgeGravidade(o.gravidade)}
@@ -469,7 +469,27 @@ const Portal = {
                   ${Anexos.icone(an.mime)} ver anexo
                 </button>`).join('')}
             </div>` : ''}
+          ${o.exige_ciencia ? (o.ciente_em
+            ? `<button class="btn-ciente" style="margin-top:10px" disabled>✅ Ciência registrada em ${dataHoraBR(o.ciente_em)}</button>`
+            : `<button class="btn-ciente" style="margin-top:10px" onclick="Portal.darCienciaOcorrencia(${o.id}, this)">Estou ciente</button>`)
+            : ''}
         </div>`).join('')}`;
+  },
+
+  async darCienciaOcorrencia(id, botao) {
+    botao.disabled = true;
+    botao.textContent = 'Registrando...';
+    try {
+      const r = await Api.post(`/api/portal/ocorrencias/${id}/ciente`);
+      botao.textContent = `✅ Ciência registrada em ${dataHoraBR(r.ciente_em)}`;
+      toast('Ciência registrada. Obrigado!');
+      this.atualizarSelo();
+      this.carregarInicio();
+    } catch (e) {
+      botao.disabled = false;
+      botao.textContent = 'Estou ciente';
+      toastErro(e.message);
+    }
   },
 
   // ── Turma (funcionário) ─────────────────────────────────────

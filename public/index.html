@@ -1419,11 +1419,17 @@
         <div class="form-group col-3"><label class="form-label">Providências tomadas</label><textarea class="form-textarea" data-campo="providencia" style="min-height:60px"></textarea></div>
       </div>
 
-      <div class="card card-p" style="padding:13px 16px;background:var(--surface)">
+      <div class="card card-p" style="padding:13px 16px;background:var(--surface);display:flex;flex-direction:column;gap:10px">
         <label class="form-check">
-          <input type="checkbox" data-campo="visivel_responsavel">
+          <input type="checkbox" data-campo="visivel_responsavel" id="ocorrVisivelResp"
+                 onchange="Ocorrencias.toggleCiencia()">
           <span><strong>Compartilhar com os responsáveis</strong><br>
           <span class="form-hint" style="margin:0">Marcada, a ocorrência aparece no aplicativo dos pais com os anexos.</span></span>
+        </label>
+        <label class="form-check" id="ocorrCienciaLabel" style="display:none">
+          <input type="checkbox" data-campo="exige_ciencia">
+          <span><strong>Exigir ciência</strong><br>
+          <span class="form-hint" style="margin:0">O responsável verá um botão "Estou ciente" e o sistema grava data e hora.</span></span>
         </label>
       </div>
 

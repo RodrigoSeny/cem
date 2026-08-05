@@ -63,9 +63,16 @@ const Ocorrencias = {
           ${o.qtd_anexos ? `<div style="font-size:11px;color:var(--txt3)">📎 ${o.qtd_anexos} anexo(s)</div>` : ''}
         </td>
         <td>${badgeGravidade(o.gravidade)}</td>
-        <td>${o.visivel_responsavel
+        <td>
+          ${o.visivel_responsavel
               ? '<span class="badge badge-green">sim</span>'
-              : '<span class="badge badge-cinza">interna</span>'}</td>
+              : '<span class="badge badge-cinza">interna</span>'}
+          ${o.exige_ciencia
+              ? (o.qtd_ciencias > 0
+                  ? `<span class="badge badge-green" title="${o.qtd_ciencias} ciência(s) registrada(s)">✅ ${o.qtd_ciencias}</span>`
+                  : '<span class="badge badge-amarelo" title="Aguardando ciência">⏳ ciência</span>')
+              : ''}
+        </td>
         <td style="font-size:12px;color:var(--txt2)">${escapar(o.registrado_nome || '—')}</td>
         <td class="acoes">
           <button class="btn-ico" onclick="Ocorrencias.abrirEdicao(${o.id})" title="Abrir">✏️</button>
@@ -110,6 +117,7 @@ const Ocorrencias = {
     document.getElementById('ocorrAnexos').innerHTML =
       '<div class="form-hint">Salve a ocorrência para anexar fotos e documentos.</div>';
 
+    this.toggleCiencia();
     this.sugerirGravidade();
     abrirModal('modalOcorrencia');
   },
@@ -133,8 +141,21 @@ const Ocorrencias = {
     document.getElementById('modalOcorrSub').textContent =
       `${o.aluno_nome} · registrada por ${o.registrado_nome || '—'} em ${dataHoraBR(o.criado_em)}`;
 
+    this.toggleCiencia();
     UI.painelAnexos('ocorrAnexos', 'ocorrencia', id);
     abrirModal('modalOcorrencia');
+  },
+
+  /** Mostra/oculta "Exigir ciência" conforme visivel_responsavel. */
+  toggleCiencia() {
+    const visivel = document.getElementById('ocorrVisivelResp')?.checked;
+    const label = document.getElementById('ocorrCienciaLabel');
+    if (!label) return;
+    label.style.display = visivel ? '' : 'none';
+    if (!visivel) {
+      const cb = label.querySelector('[data-campo="exige_ciencia"]');
+      if (cb) cb.checked = false;
+    }
   },
 
   /** Ao trocar o tipo, sugere a gravidade correspondente. */

@@ -29,13 +29,14 @@ const TIPOS = [
 const CAMPOS = [
   'aluno_id', 'tipo', 'gravidade', 'titulo', 'descricao',
   'data_ocorrencia', 'hora_ocorrencia', 'local_ocorrencia',
-  'providencia', 'visivel_responsavel',
+  'providencia', 'visivel_responsavel', 'exige_ciencia',
 ];
 
 function preparar(body) {
   const d = filtrarCampos(body, CAMPOS);
   if ('aluno_id' in d) d.aluno_id = Number(d.aluno_id);
   if ('visivel_responsavel' in d) d.visivel_responsavel = bool01(d.visivel_responsavel);
+  if ('exige_ciencia' in d) d.exige_ciencia = bool01(d.exige_ciencia);
   return d;
 }
 
@@ -43,7 +44,8 @@ const SELECT_BASE = `
   SELECT o.*,
          a.nome AS aluno_nome, a.matricula,
          t.nome AS turma_nome,
-         (SELECT COUNT(*) FROM anexos an WHERE an.entidade = 'ocorrencia' AND an.entidade_id = o.id) AS qtd_anexos
+         (SELECT COUNT(*) FROM anexos an WHERE an.entidade = 'ocorrencia' AND an.entidade_id = o.id) AS qtd_anexos,
+         (SELECT COUNT(*) FROM ocorrencia_ciencias oc WHERE oc.ocorrencia_id = o.id) AS qtd_ciencias
     FROM ocorrencias o
     JOIN alunos a ON a.id = o.aluno_id
     LEFT JOIN turmas t ON t.id = a.turma_id
