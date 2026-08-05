@@ -485,6 +485,78 @@ CREATE TABLE IF NOT EXISTS despesas (
 );
 CREATE INDEX IF NOT EXISTS idx_desp_cc  ON despesas (centro_custo_id);
 CREATE INDEX IF NOT EXISTS idx_desp_st  ON despesas (status, vencimento);
+
+-- ══ CONTROLE BANCÁRIO ════════════════════════════════════
+
+-- Contas bancárias da escola
+CREATE TABLE IF NOT EXISTS contas_bancarias (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome           TEXT NOT NULL,
+  banco          TEXT NOT NULL DEFAULT '',
+  codigo_banco   TEXT,
+  agencia        TEXT,
+  conta          TEXT,
+  tipo           TEXT NOT NULL DEFAULT 'corrente'
+                   CHECK (tipo IN ('corrente','poupanca','investimento','caixa')),
+  saldo_inicial  REAL NOT NULL DEFAULT 0,
+  data_inicial   TEXT,
+  ativa          INTEGER NOT NULL DEFAULT 1,
+  criado_em      TEXT DEFAULT (datetime('now','localtime'))
+);
+
+-- Cabeçalho de cada arquivo OFX importado
+CREATE TABLE IF NOT EXISTS importacoes_ofx (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  conta_id          INTEGER REFERENCES contas_bancarias(id) ON DELETE SET NULL,
+  banco_origem      TEXT,
+  agencia_origem    TEXT,
+  conta_origem      TEXT,
+  periodo_inicio    TEXT,
+  periodo_fim       TEXT,
+  total_transacoes  INTEGER NOT NULL DEFAULT 0,
+  nome_arquivo      TEXT,
+  importado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  importado_nome    TEXT,
+  importado_em      TEXT DEFAULT (datetime('now','localtime'))
+);
+
+-- Transações do extrato (uma linha por <STMTTRN>)
+CREATE TABLE IF NOT EXISTS ofx_transacoes (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  importacao_id      INTEGER NOT NULL REFERENCES importacoes_ofx(id) ON DELETE CASCADE,
+  conta_id           INTEGER REFERENCES contas_bancarias(id) ON DELETE SET NULL,
+  fitid              TEXT NOT NULL,
+  tipo               TEXT NOT NULL CHECK (tipo IN ('CREDIT','DEBIT')),
+  data_lancamento    TEXT NOT NULL,
+  valor              REAL NOT NULL,
+  descricao          TEXT,
+  nome_beneficiario  TEXT,
+  status             TEXT NOT NULL DEFAULT 'pendente'
+                       CHECK (status IN ('pendente','conciliado','descartado')),
+  observacoes        TEXT,
+  conciliado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  conciliado_nome    TEXT,
+  conciliado_em      TEXT,
+  criado_em          TEXT DEFAULT (datetime('now','localtime')),
+  UNIQUE (importacao_id, fitid)
+);
+CREATE INDEX IF NOT EXISTS idx_ofxt_status ON ofx_transacoes (status, data_lancamento);
+CREATE INDEX IF NOT EXISTS idx_ofxt_import ON ofx_transacoes (importacao_id);
+CREATE INDEX IF NOT EXISTS idx_ofxt_conta  ON ofx_transacoes (conta_id, data_lancamento);
+
+-- Vínculos N:N transação OFX ↔ pagamento ou despesa
+-- Permite que 2 pagamentos do sistema = 1 PIX recebido (e vice-versa)
+CREATE TABLE IF NOT EXISTS ofx_vinculos (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  transacao_id     INTEGER NOT NULL REFERENCES ofx_transacoes(id) ON DELETE CASCADE,
+  entidade         TEXT NOT NULL CHECK (entidade IN ('pagamento','despesa')),
+  entidade_id      INTEGER NOT NULL,
+  valor_vinculado  REAL NOT NULL,
+  criado_em        TEXT DEFAULT (datetime('now','localtime')),
+  UNIQUE (transacao_id, entidade, entidade_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ofxv_trans ON ofx_vinculos (transacao_id);
+CREATE INDEX IF NOT EXISTS idx_ofxv_ent   ON ofx_vinculos (entidade, entidade_id);
 `;
 
 db.exec(SCHEMA);

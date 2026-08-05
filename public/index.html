@@ -76,6 +76,8 @@
         <div class="nav-submenu-item" data-pagina="fin-cadastros"><span class="ico">🗂️</span> Cadastros</div>
         <div class="nav-submenu-item" data-pagina="fin-recebimentos"><span class="ico">💵</span> Recebimentos</div>
         <div class="nav-submenu-item" data-pagina="fin-pagamentos"><span class="ico">💳</span> Pagamentos</div>
+        <div class="nav-submenu-item" data-pagina="fin-banco"><span class="ico">🏦</span> Contas Bancárias</div>
+        <div class="nav-submenu-item" data-pagina="fin-conciliacao"><span class="ico">🔗</span> Conciliação Bancária</div>
       </div>
 
       <div class="nav-item" data-pagina="relatorios"><span class="ico">📊</span> Relatórios</div>
@@ -619,6 +621,96 @@
         </div>
         <div class="tabela-rodape"><span id="despTotal">—</span></div>
       </div>
+    </section>
+
+    <!-- ─────────── FINANCEIRO · CONTAS BANCÁRIAS ─────────── -->
+    <section class="pagina" id="pagina-fin-banco">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Contas Bancárias</h1>
+          <p class="pagina-sub">Cadastro de contas e importação de extratos OFX</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-ghost" onclick="Banco.abrirImportar()">⬆️ Importar OFX</button>
+          <button class="btn btn-primary" onclick="Banco.abrirNova()">＋ Nova conta</button>
+        </div>
+      </div>
+
+      <div class="abas" id="bancoAbas">
+        <button class="aba active" data-bancoaba="contas">Contas cadastradas</button>
+        <button class="aba" data-bancoaba="importacoes">Importações OFX</button>
+      </div>
+
+      <!-- Contas -->
+      <div class="aba-conteudo active" id="bancoaba-contas">
+        <div id="bancoContasLista" class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))"></div>
+        <div id="bancoContasVazio" class="vazio oculto">Nenhuma conta cadastrada.</div>
+      </div>
+
+      <!-- Importações -->
+      <div class="aba-conteudo" id="bancoaba-importacoes">
+        <div class="filtros">
+          <div class="campo">
+            <label>Conta</label>
+            <select class="form-select" id="impFiltroConta" style="min-width:220px" onchange="Banco.carregarImportacoes()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+        </div>
+        <div class="tabela-wrap">
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Conta</th><th>Arquivo</th><th>Período</th><th>Importado em</th><th>Total</th><th>Pendentes</th><th>Conciliados</th><th class="acoes">Ações</th></tr>
+              </thead>
+              <tbody id="impCorpo"></tbody>
+            </table>
+          </div>
+          <div class="tabela-rodape"><span id="impTotal">—</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── FINANCEIRO · CONCILIAÇÃO ─────────── -->
+    <section class="pagina" id="pagina-fin-conciliacao">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Conciliação Bancária</h1>
+          <p class="pagina-sub" id="concilSubtitulo">Vincule as transações do extrato às movimentações do sistema</p>
+        </div>
+        <div class="pagina-acoes">
+          <select class="form-select" id="concilFiltroStatus" style="min-width:160px" onchange="Conciliacao.carregar()">
+            <option value="">Todos</option>
+            <option value="pendente" selected>Pendentes</option>
+            <option value="conciliado">Conciliados</option>
+            <option value="descartado">Descartados</option>
+          </select>
+          <button class="btn btn-ghost" onclick="Conciliacao.carregar()">🔄 Atualizar</button>
+        </div>
+      </div>
+
+      <!-- Resumo da importação -->
+      <div id="concilResumo" class="oculto" style="margin-bottom:16px"></div>
+
+      <!-- Seletor de importação -->
+      <div class="card card-p mb-4" id="concilSeletor">
+        <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="margin:0;min-width:220px">
+            <label class="form-label">Conta bancária</label>
+            <select class="form-select" id="concilConta" onchange="Conciliacao.trocarConta()">
+              <option value="">Selecione…</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:240px">
+            <label class="form-label">Importação</label>
+            <select class="form-select" id="concilImportacao" onchange="Conciliacao.carregar()">
+              <option value="">Selecione…</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="concilLista"></div>
     </section>
 
     <!-- Conteúdo das abas de Cadastros (movido por JS para dentro da aba) -->
@@ -1765,8 +1857,168 @@
 <script src="/js/relatorios.js"></script>
 <script src="/js/ocorrencias.js"></script>
 <script src="/js/mensagens.js"></script>
+<!-- Modal — Conta Bancária -->
+<div class="modal-overlay" id="modalContaBancaria">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="modalContaTitulo">Nova conta bancária</h3></div>
+      <button class="btn-ico" onclick="fecharModal('modalContaBancaria')">✕</button>
+    </div>
+    <div class="modal-body" id="formContaBancaria">
+      <div class="form-grid">
+        <div class="form-group col-2">
+          <label class="form-label">Nome / apelido da conta <span class="req">*</span></label>
+          <input class="form-input" data-campo="nome" placeholder="Ex.: Conta corrente Caixa">
+        </div>
+        <div class="form-group col-2">
+          <label class="form-label">Banco <span class="req">*</span></label>
+          <input class="form-input" data-campo="banco" list="listaBancos" placeholder="Nome do banco">
+          <datalist id="listaBancos">
+            <option>Banco do Brasil</option><option>Bradesco</option><option>Itaú</option>
+            <option>Caixa Econômica Federal</option><option>Santander</option><option>Sicoob</option>
+            <option>Sicredi</option><option>Nubank</option><option>Inter</option><option>C6 Bank</option>
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cód. banco (COMPE)</label>
+          <input class="form-input" data-campo="codigo_banco" placeholder="001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" data-campo="tipo">
+            <option value="corrente">Corrente</option>
+            <option value="poupanca">Poupança</option>
+            <option value="investimento">Investimento</option>
+            <option value="caixa">Caixa físico</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agência</label>
+          <input class="form-input" data-campo="agencia" placeholder="0001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Conta</label>
+          <input class="form-input" data-campo="conta" placeholder="12345-6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Saldo inicial (R$)</label>
+          <input class="form-input" data-campo="saldo_inicial" type="number" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data do saldo inicial</label>
+          <input class="form-input" type="date" data-campo="data_inicial">
+        </div>
+        <div class="form-group col-2">
+          <label class="form-check" style="margin-top:26px"><input type="checkbox" data-campo="ativa" checked> Conta ativa</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalContaBancaria')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Banco.salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal — Importar OFX -->
+<div class="modal-overlay" id="modalImportarOFX">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3>Importar extrato OFX</h3>
+        <div class="sub">Selecione a conta e o arquivo exportado pelo banco</div>
+      </div>
+      <button class="btn-ico" onclick="fecharModal('modalImportarOFX')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Conta bancária <span class="req">*</span></label>
+        <select class="form-select" id="ofxContaId">
+          <option value="">Selecione…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Arquivo OFX <span class="req">*</span></label>
+        <input type="file" class="form-input" id="ofxArquivo" accept=".ofx,.OFX">
+        <div class="form-hint">Suporte: OFX 1.x (SGML) e OFX 2.x (XML) — padrão dos principais bancos brasileiros.</div>
+      </div>
+      <div id="ofxPreview" class="oculto card card-p" style="margin-top:12px;font-size:12.5px;color:var(--txt2)"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalImportarOFX')">Cancelar</button>
+      <button class="btn btn-primary" id="btnImportarOFX" onclick="Banco.importar()">⬆️ Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal — Conciliar manualmente -->
+<div class="modal-overlay" id="modalConciliarManual">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div>
+        <h3>Vincular lançamento bancário</h3>
+        <div class="sub" id="concilManualSub">Selecione um ou mais registros do sistema para vincular</div>
+      </div>
+      <button class="btn-ico" onclick="fecharModal('modalConciliarManual')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Card da transação OFX -->
+      <div id="concilManualTransacao" class="card card-p mb-4" style="font-size:13px"></div>
+
+      <!-- Filtros de busca -->
+      <div class="filtros" style="margin-bottom:12px">
+        <div class="campo busca">
+          <label>Buscar</label>
+          <input type="text" class="form-input" id="concilBusca" placeholder="Nome, descrição ou competência…">
+        </div>
+        <div class="campo"><label>De</label><input type="date" class="form-input" id="concilBuscaDe"></div>
+        <div class="campo"><label>Até</label><input type="date" class="form-input" id="concilBuscaAte"></div>
+        <button class="btn btn-ghost" onclick="Conciliacao.buscar()">🔍 Buscar</button>
+      </div>
+
+      <div class="tabela-wrap" style="max-height:340px;overflow-y:auto">
+        <table class="tabela">
+          <thead><tr><th style="width:32px"></th><th>Data</th><th>Descrição</th><th>Valor</th><th>Detalhe</th></tr></thead>
+          <tbody id="concilManualCorpo"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--txt2)">
+        Selecionados: <strong id="concilManualQtd">0</strong> item(ns) ·
+        Total: <strong id="concilManualTotal">R$ 0,00</strong>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalConciliarManual')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Conciliacao.vincularManual()">🔗 Vincular selecionados</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal — Criar lançamento a partir do extrato -->
+<div class="modal-overlay" id="modalCriarLancamento">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="criarLancTitulo">Criar recebimento</h3>
+        <div class="sub">Registra e vincula automaticamente</div>
+      </div>
+      <button class="btn-ico" onclick="fecharModal('modalCriarLancamento')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="criarLancTransacao" class="card card-p mb-4" style="font-size:13px"></div>
+      <div id="criarLancForm"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalCriarLancamento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Conciliacao.criarLancamento()">💾 Criar e vincular</button>
+    </div>
+  </div>
+</div>
+
 <script src="/js/financeiro.js"></script>
 <script src="/js/financeiro-extra.js"></script>
 <script src="/js/sql-manager.js"></script>
+<script src="/js/banco.js"></script>
+<script src="/js/conciliacao.js"></script>
 </body>
 </html>

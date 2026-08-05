@@ -62,6 +62,8 @@ app.use('/api/financeiro/centros-custo', custos.centros);
 app.use('/api/financeiro/despesas',      custos.despesas);
 app.use('/api/financeiro/cobrancas',     require('./src/routes/cobrancas.routes').router);
 app.use('/api/financeiro',    require('./src/routes/financeiro.routes').router);
+app.use('/api/banco',         require('./src/routes/banco.routes'));
+app.use('/api/conciliacao',  require('./src/routes/conciliacao.routes'));
 app.use('/api/municipios',    require('./src/routes/municipios.routes'));
 app.use('/api/sql',           require('./src/routes/sql.routes'));
 app.use('/api/usuarios',      rotasUsuarios);

@@ -40,10 +40,12 @@ const PAGINAS = [
   { id: 'ocorrencias',   nome: 'Ocorrências',          grupo: 'Secretaria' },
   { id: 'mensagens',     nome: 'Mensagens',            grupo: 'Secretaria' },
   { id: 'funcionarios',  nome: 'Funcionários',         grupo: 'Administrativo' },
-  { id: 'fin-painel',       nome: 'Financeiro · Painel',       grupo: 'Financeiro' },
-  { id: 'fin-cadastros',    nome: 'Financeiro · Cadastros',    grupo: 'Financeiro' },
-  { id: 'fin-recebimentos', nome: 'Financeiro · Recebimentos', grupo: 'Financeiro' },
-  { id: 'fin-pagamentos',   nome: 'Financeiro · Pagamentos',   grupo: 'Financeiro' },
+  { id: 'fin-painel',       nome: 'Financeiro · Painel',              grupo: 'Financeiro' },
+  { id: 'fin-cadastros',    nome: 'Financeiro · Cadastros',           grupo: 'Financeiro' },
+  { id: 'fin-recebimentos', nome: 'Financeiro · Recebimentos',        grupo: 'Financeiro' },
+  { id: 'fin-pagamentos',   nome: 'Financeiro · Pagamentos',          grupo: 'Financeiro' },
+  { id: 'fin-banco',        nome: 'Financeiro · Contas Bancárias',    grupo: 'Financeiro' },
+  { id: 'fin-conciliacao',  nome: 'Financeiro · Conciliação Bancária',grupo: 'Financeiro' },
   { id: 'relatorios',    nome: 'Relatórios',           grupo: 'Administrativo' },
   { id: 'usuarios',      nome: 'Usuários e Acessos',   grupo: 'Sistema' },
   { id: 'configuracoes', nome: 'Configurações',        grupo: 'Sistema' },
@@ -69,6 +71,9 @@ const ROTA_PAGINAS = {
 
   // Financeiro: os prefixos específicos vêm ANTES do geral, porque
   // paginasDaRota devolve a primeira correspondência encontrada.
+  '/api/banco':        ['fin-banco', 'fin-conciliacao'],
+  '/api/conciliacao':  ['fin-conciliacao'],
+
   '/api/financeiro/centros-custo': ['fin-cadastros', 'fin-pagamentos'],
   '/api/financeiro/despesas':      ['fin-pagamentos'],
   '/api/financeiro/cobrancas':     ['fin-cadastros', 'fin-recebimentos'],

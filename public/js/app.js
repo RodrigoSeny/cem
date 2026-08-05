@@ -18,6 +18,8 @@ const PAGINAS_APP = [
   { id: 'fin-cadastros',    rotulo: 'Cadastros Financeiro', ico: '🗂️', permissao: 'fin-cadastros' },
   { id: 'fin-recebimentos', rotulo: 'Recebimentos',         ico: '💵', permissao: 'fin-recebimentos' },
   { id: 'fin-pagamentos',   rotulo: 'Pagamentos',           ico: '💳', permissao: 'fin-pagamentos' },
+  { id: 'fin-banco',        rotulo: 'Contas Bancárias',     ico: '🏦', permissao: 'fin-banco' },
+  { id: 'fin-conciliacao',  rotulo: 'Conciliação Bancária', ico: '🔗', permissao: 'fin-conciliacao' },
   { id: 'relatorios',     rotulo: 'Relatórios',        ico: '📊', permissao: 'relatorios' },
   { id: 'usuarios',       rotulo: 'Usuários',          ico: '👥', permissao: 'usuarios' },
   { id: 'perfis',         rotulo: 'Perfis de Acesso',  ico: '🛡️', permissao: 'usuarios' },
