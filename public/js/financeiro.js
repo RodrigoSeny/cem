@@ -460,6 +460,7 @@ const Financeiro = {
       if (v < 0 || (v > 0 && v < 0.01) || v > 99.99) {
         return toastErro(`${rotulo} deve ficar entre 0,01% e 99,99% (ou 0, para não aplicar).`);
       }
+      d[campo] = v; // campo vazio vira 0 de verdade antes de mandar pro servidor
     }
 
     try {

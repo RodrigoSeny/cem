@@ -225,9 +225,15 @@ router.put('/contratos/:id', rota((req, res) => {
   ]);
   if (!Object.keys(d).length) return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
 
-  for (const n of ['plano_id', 'responsavel_id', 'valor_mensalidade', 'desconto_percentual',
-                   'bolsa_percentual', 'dia_vencimento', 'num_parcelas', 'mes_inicio']) {
+  for (const n of ['plano_id', 'responsavel_id', 'valor_mensalidade',
+                   'dia_vencimento', 'num_parcelas', 'mes_inicio']) {
     if (n in d) d[n] = d[n] === null ? null : Number(d[n]);
+  }
+  // desconto_percentual/bolsa_percentual são NOT NULL no banco (padrão 0) — campo
+  // vazio no formulário vira null aqui em cima e quebraria o UPDATE; trata como 0,
+  // igual ao POST já fazia.
+  for (const n of ['desconto_percentual', 'bolsa_percentual']) {
+    if (n in d) d[n] = Number(d[n]) || 0;
   }
 
   if ('desconto_percentual' in d) {
