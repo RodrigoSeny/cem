@@ -141,14 +141,15 @@
       })
       .catch(() => {});
 
-    // Já autenticado? vai direto para o destino do perfil
+    // Já autenticado? só pula direto se for funcionário — esta tela é a
+    // entrada do sistema de gestão, não uma porta alternativa pro app.
     (function () {
       const token = sessionStorage.getItem('cem_token');
       if (!token) return;
       try {
         const p = JSON.parse(atob(token.split('.')[1]));
         if (p.exp * 1000 > Date.now()) {
-          window.location.href = p.tipo === 'responsavel' ? '/app' : '/sistema';
+          if (p.tipo !== 'responsavel') window.location.replace('/sistema');
           return;
         }
       } catch (e) {}
@@ -184,7 +185,7 @@
         const resp = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, senha })
+          body: JSON.stringify({ login, senha, contexto: 'sistema' })
         });
         const data = await resp.json();
 
@@ -197,7 +198,12 @@
 
         sessionStorage.setItem('cem_token', data.token);
         sessionStorage.setItem('cem_usuario', JSON.stringify(data.usuario));
-        window.location.href = data.usuario.tipo === 'responsavel' ? '/app' : '/sistema';
+        // O servidor já recusa login de responsável aqui (contexto: 'sistema'),
+        // então quem chega neste ponto é sempre funcionário. Usa replace() —
+        // não location.href — pra esta tela não ficar no histórico: sem isso,
+        // o botão "voltar" do celular cairia de novo aqui com os campos ainda
+        // preenchidos.
+        window.location.replace('/sistema');
       } catch (e) {
         mostrarErro('Erro de conexão com o servidor.');
       } finally {

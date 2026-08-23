@@ -165,7 +165,7 @@
       try {
         const p = JSON.parse(atob(token.split('.')[1]));
         if (p.exp * 1000 > Date.now()) {
-          if (p.tipo === 'responsavel') window.location.href = '/app';
+          if (p.tipo === 'responsavel') window.location.replace('/app');
           return;
         }
       } catch (e) {}
@@ -232,8 +232,11 @@
         sessionStorage.setItem('cem_token', data.token);
         sessionStorage.setItem('cem_usuario', JSON.stringify(data.usuario));
         // O servidor já recusa login de funcionário aqui (contexto: 'app'),
-        // então quem chega neste ponto é sempre responsável.
-        window.location.href = '/app';
+        // então quem chega neste ponto é sempre responsável. Usa replace() —
+        // não location.href — pra esta tela não ficar no histórico: sem isso,
+        // o botão "voltar" do celular cairia de novo aqui com os campos ainda
+        // preenchidos.
+        window.location.replace('/app');
       } catch (e) {
         mostrarErro('Erro de conexão com o servidor.');
       } finally {

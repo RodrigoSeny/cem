@@ -39,6 +39,37 @@ document.querySelectorAll('.rodape button').forEach(b => {
   b.addEventListener('click', () => irTela(b.dataset.tela));
 });
 
+// ── Botão "voltar" do celular ──────────────────────────────────
+// Sem isso, voltar na tela principal cai no histórico do navegador — a
+// tela de login, com usuário e senha ainda preenchidos. Em vez disso: com
+// um modal aberto, fecha o modal; em qualquer tela que não seja a inicial,
+// volta pra inicial; já na inicial, pergunta antes de sair do app.
+history.pushState({ cemApp: true }, '', location.href);
+let perguntandoSaida = false;
+window.addEventListener('popstate', async () => {
+  if (perguntandoSaida) return; // ignora "voltar" repetido enquanto o diálogo já está aberto
+
+  const modalAberto = document.querySelector('.modal-overlay.aberto');
+  if (modalAberto) {
+    fecharModal(modalAberto.id);
+    history.pushState({ cemApp: true }, '', location.href);
+    return;
+  }
+
+  const telaAtual = document.querySelector('.tela.active')?.id?.replace('tela-', '') || 'inicio';
+  if (telaAtual !== 'inicio') {
+    history.pushState({ cemApp: true }, '', location.href);
+    irTela('inicio');
+    return;
+  }
+
+  history.pushState({ cemApp: true }, '', location.href);
+  perguntandoSaida = true;
+  const sair = await confirmar('Deseja realmente sair do aplicativo?', { titulo: 'Sair do app', textoOk: 'Sair', perigo: false });
+  perguntandoSaida = false;
+  if (sair) window.close();
+});
+
 // ── Instalação do PWA ─────────────────────────────────────────
 let promptInstalacao = null;
 window.addEventListener('beforeinstallprompt', e => {
