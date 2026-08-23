@@ -35,13 +35,15 @@ Object.assign(Financeiro, {
 
     // O botão do cabeçalho muda conforme a aba
     const acoes = {
-      planos:    { rotulo: '＋ Novo plano',           fn: 'Financeiro.abrirPlanos()' },
-      contratos: { rotulo: '📄 Novo contrato',        fn: 'Financeiro.abrirContrato()' },
+      planos:    { rotulo: '＋ Novo plano',           fn: 'Financeiro.abrirPlanos()',
+                   extra: '<button class="btn btn-ghost" onclick="Financeiro.abrirReajuste()">📈 Aplicar reajuste</button>' },
+      contratos: { rotulo: '📄 Novo contrato',        fn: 'Financeiro.abrirContrato()',
+                   extra: '<button class="btn btn-ghost" onclick="Financeiro.abrirLote()">🧙 Montar plano</button>' },
       cobrancas: { rotulo: '＋ Nova cobrança',        fn: 'Financeiro.abrirCobrancaVariavel()' },
       centros:   { rotulo: '＋ Novo centro de custo', fn: 'Financeiro.abrirCentro()' },
     }[nome];
     document.getElementById('finCadAcoes').innerHTML =
-      `<button class="btn btn-primary" onclick="${acoes.fn}">${acoes.rotulo}</button>`;
+      `${acoes.extra || ''}<button class="btn btn-primary" onclick="${acoes.fn}">${acoes.rotulo}</button>`;
 
     ({
       planos: () => this.carregarPlanosTabela(),

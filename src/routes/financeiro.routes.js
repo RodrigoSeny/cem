@@ -35,8 +35,13 @@ router.get('/planos', rota((req, res) => {
       FROM planos_pagamento p ORDER BY p.ativo DESC, p.nome`).all());
 }));
 
+const CAMPOS_PLANO = [
+  'nome', 'valor_mensalidade', 'taxa_matricula', 'num_parcelas', 'dia_vencimento', 'descricao', 'ativo',
+  'desconto_irmao2_percentual', 'desconto_irmao3_percentual',
+];
+
 router.post('/planos', rota((req, res) => {
-  const d = filtrarCampos(req.body, ['nome', 'valor_mensalidade', 'taxa_matricula', 'num_parcelas', 'dia_vencimento', 'descricao', 'ativo']);
+  const d = filtrarCampos(req.body, CAMPOS_PLANO);
   if (!d.nome) return res.status(400).json({ error: 'Informe o nome do plano.' });
 
   d.valor_mensalidade = Number(d.valor_mensalidade) || 0;
@@ -44,6 +49,13 @@ router.post('/planos', rota((req, res) => {
   d.num_parcelas = Number(d.num_parcelas) || 12;
   d.dia_vencimento = Number(d.dia_vencimento) || 10;
   d.ativo = 'ativo' in d ? bool01(d.ativo) : 1;
+  d.desconto_irmao2_percentual = Number(d.desconto_irmao2_percentual) || 0;
+  d.desconto_irmao3_percentual = Number(d.desconto_irmao3_percentual) || 0;
+
+  const erro2 = validarPercentual(d.desconto_irmao2_percentual, 'O desconto do 2º filho');
+  if (erro2) return res.status(400).json({ error: erro2 });
+  const erro3 = validarPercentual(d.desconto_irmao3_percentual, 'O desconto do 3º filho');
+  if (erro3) return res.status(400).json({ error: erro3 });
 
   const { sql, valores } = montarInsert('planos_pagamento', d);
   const info = db.prepare(sql).run(...valores);
@@ -56,11 +68,21 @@ router.put('/planos/:id', rota((req, res) => {
   if (!db.prepare('SELECT id FROM planos_pagamento WHERE id = ?').get(id)) {
     return res.status(404).json({ error: 'Plano não encontrado.' });
   }
-  const d = filtrarCampos(req.body, ['nome', 'valor_mensalidade', 'taxa_matricula', 'num_parcelas', 'dia_vencimento', 'descricao', 'ativo']);
+  const d = filtrarCampos(req.body, CAMPOS_PLANO);
   if (!Object.keys(d).length) return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
   if ('ativo' in d) d.ativo = bool01(d.ativo);
-  for (const n of ['valor_mensalidade', 'taxa_matricula', 'num_parcelas', 'dia_vencimento']) {
+  for (const n of ['valor_mensalidade', 'taxa_matricula', 'num_parcelas', 'dia_vencimento',
+                   'desconto_irmao2_percentual', 'desconto_irmao3_percentual']) {
     if (n in d) d[n] = Number(d[n]) || 0;
+  }
+
+  if ('desconto_irmao2_percentual' in d) {
+    const erro = validarPercentual(d.desconto_irmao2_percentual, 'O desconto do 2º filho');
+    if (erro) return res.status(400).json({ error: erro });
+  }
+  if ('desconto_irmao3_percentual' in d) {
+    const erro = validarPercentual(d.desconto_irmao3_percentual, 'O desconto do 3º filho');
+    if (erro) return res.status(400).json({ error: erro });
   }
 
   const { sql, valores } = montarUpdate('planos_pagamento', d, id);
@@ -76,6 +98,43 @@ router.delete('/planos/:id', rota((req, res) => {
 
   db.prepare('DELETE FROM planos_pagamento WHERE id = ?').run(id);
   log(req, 'excluir', 'planos_pagamento', id, null);
+  res.json({ ok: true });
+}));
+
+// ── Valores do plano por turma / tipo de aluno ────────────────
+router.get('/planos/:id/valores', rota((req, res) => {
+  res.json(db.prepare(`
+    SELECT pv.*, t.nome AS turma_nome FROM plano_valores pv
+      LEFT JOIN turmas t ON t.id = pv.turma_id
+     WHERE pv.plano_id = ?
+     ORDER BY t.nome IS NULL DESC, t.nome, pv.tipo_aluno`).all(Number(req.params.id)));
+}));
+
+router.put('/planos/:id/valores', rota((req, res) => {
+  const planoId = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM planos_pagamento WHERE id = ?').get(planoId)) {
+    return res.status(404).json({ error: 'Plano não encontrado.' });
+  }
+  const linhas = Array.isArray(req.body.valores) ? req.body.valores : [];
+
+  const substituir = db.transaction(() => {
+    db.prepare('DELETE FROM plano_valores WHERE plano_id = ?').run(planoId);
+    const inserir = db.prepare(`
+      INSERT INTO plano_valores (plano_id, turma_id, tipo_aluno, valor_mensalidade)
+      VALUES (?, ?, ?, ?)`);
+    for (const l of linhas) {
+      if (!(Number(l.valor_mensalidade) > 0)) continue;
+      inserir.run(
+        planoId,
+        l.turma_id ? Number(l.turma_id) : null,
+        ['novo', 'antigo', 'ambos'].includes(l.tipo_aluno) ? l.tipo_aluno : 'ambos',
+        Number(l.valor_mensalidade)
+      );
+    }
+  });
+  substituir();
+
+  log(req, 'atualizar', 'plano_valores', planoId, `${linhas.length} linha(s)`);
   res.json({ ok: true });
 }));
 
@@ -116,9 +175,19 @@ function gerarParcelas(contrato) {
   // Remove as em aberto para recriar com os valores atuais
   db.prepare(`DELETE FROM mensalidades WHERE contrato_id = ? AND status <> 'paga'`).run(contrato.id);
 
-  const desconto = (Number(contrato.desconto_percentual) + Number(contrato.bolsa_percentual)) / 100;
+  // Desconto manual (desconto + bolsa, somados) e desconto de irmão são camadas
+  // separadas: o de irmão incide sobre o valor que já saiu com o manual, não
+  // sobre o valor cheio (composto, não somado).
   const bruto = Number(contrato.valor_mensalidade);
-  const valorDesconto = Number((bruto * Math.min(desconto, 1)).toFixed(2));
+  const descontoManual = Math.min((Number(contrato.desconto_percentual) + Number(contrato.bolsa_percentual)) / 100, 1);
+  const valorAposManual = bruto * (1 - descontoManual);
+  const valorDescontoManual = Number((bruto - valorAposManual).toFixed(2));
+
+  const descontoIrmao = Math.min(Number(contrato.desconto_irmao_percentual) / 100, 1);
+  const valorFinal = valorAposManual * (1 - descontoIrmao);
+  const valorDescontoIrmao = Number((valorAposManual - valorFinal).toFixed(2));
+
+  const valorDesconto = Number((valorDescontoManual + valorDescontoIrmao).toFixed(2));
 
   const stmt = db.prepare(`
     INSERT INTO mensalidades (contrato_id, aluno_id, competencia, parcela, descricao, valor_original, valor_desconto, vencimento, status, criado_em)
@@ -151,25 +220,31 @@ function gerarParcelas(contrato) {
     );
 
     item.run(info.lastInsertRowid, descricao, bruto, 'mensalidade', 0);
-    if (valorDesconto > 0) item.run(info.lastInsertRowid, 'Desconto', -valorDesconto, 'desconto', 1);
+    if (valorDescontoManual > 0) item.run(info.lastInsertRowid, 'Desconto', -valorDescontoManual, 'desconto', 1);
+    if (valorDescontoIrmao > 0) item.run(info.lastInsertRowid, 'Desconto de irmão', -valorDescontoIrmao, 'desconto', 2);
 
     criadas++;
   }
   return criadas;
 }
 
-router.post('/contratos', rota((req, res) => {
-  const d = filtrarCampos(req.body, [
+/**
+ * Monta e grava um contrato + parcelas a partir de um corpo já no formato da
+ * API. Não lança: devolve { erro, status } em caso de falha, ou { contrato,
+ * parcelas }. Usada tanto pelo POST /contratos avulso quanto pelo lote.
+ */
+function criarContrato(corpo) {
+  const d = filtrarCampos(corpo, [
     'aluno_id', 'plano_id', 'responsavel_id', 'ano_letivo', 'valor_mensalidade',
-    'desconto_percentual', 'bolsa_percentual', 'dia_vencimento', 'num_parcelas',
-    'mes_inicio', 'status', 'observacoes',
+    'desconto_percentual', 'bolsa_percentual', 'desconto_irmao_percentual', 'tipo_aluno',
+    'dia_vencimento', 'num_parcelas', 'mes_inicio', 'status', 'observacoes',
   ]);
 
-  if (!d.aluno_id) return res.status(400).json({ error: 'Selecione o aluno.' });
-  if (!d.plano_id) return res.status(400).json({ error: 'Selecione o plano de pagamento.' });
+  if (!d.aluno_id) return { erro: 'Selecione o aluno.', status: 400 };
+  if (!d.plano_id) return { erro: 'Selecione o plano de pagamento.', status: 400 };
 
   const plano = db.prepare('SELECT * FROM planos_pagamento WHERE id = ?').get(Number(d.plano_id));
-  if (!plano) return res.status(400).json({ error: 'Plano não encontrado.' });
+  if (!plano) return { erro: 'Plano não encontrado.', status: 400 };
 
   d.aluno_id = Number(d.aluno_id);
   d.plano_id = Number(d.plano_id);
@@ -178,11 +253,15 @@ router.post('/contratos', rota((req, res) => {
   d.valor_mensalidade = d.valor_mensalidade != null ? Number(d.valor_mensalidade) : plano.valor_mensalidade;
   d.desconto_percentual = Number(d.desconto_percentual) || 0;
   d.bolsa_percentual = Number(d.bolsa_percentual) || 0;
+  d.desconto_irmao_percentual = Number(d.desconto_irmao_percentual) || 0;
+  if (!['novo', 'antigo'].includes(d.tipo_aluno)) d.tipo_aluno = null;
 
   const erroDesc = validarPercentual(d.desconto_percentual, 'O desconto');
-  if (erroDesc) return res.status(400).json({ error: erroDesc });
+  if (erroDesc) return { erro: erroDesc, status: 400 };
   const erroBolsa = validarPercentual(d.bolsa_percentual, 'A bolsa');
-  if (erroBolsa) return res.status(400).json({ error: erroBolsa });
+  if (erroBolsa) return { erro: erroBolsa, status: 400 };
+  const erroIrmao = validarPercentual(d.desconto_irmao_percentual, 'O desconto de irmão');
+  if (erroIrmao) return { erro: erroIrmao, status: 400 };
 
   d.dia_vencimento = Number(d.dia_vencimento) || plano.dia_vencimento;
   d.num_parcelas = Number(d.num_parcelas) || plano.num_parcelas;
@@ -194,7 +273,7 @@ router.post('/contratos', rota((req, res) => {
     const vinculado = db.prepare(
       'SELECT 1 FROM aluno_responsaveis WHERE aluno_id = ? AND responsavel_id = ?'
     ).get(d.aluno_id, d.responsavel_id);
-    if (!vinculado) return res.status(400).json({ error: 'Este responsável não está vinculado ao aluno selecionado.' });
+    if (!vinculado) return { erro: 'Este responsável não está vinculado ao aluno selecionado.', status: 400 };
   } else {
     // Responsável financeiro padrão: o principal do aluno
     const r = db.prepare(`
@@ -204,15 +283,29 @@ router.post('/contratos', rota((req, res) => {
     d.responsavel_id = r ? r.responsavel_id : null;
   }
 
-  const { sql, valores } = montarInsert('contratos_financeiros', d);
-  const info = db.prepare(sql).run(...valores);
+  let info;
+  try {
+    const { sql, valores } = montarInsert('contratos_financeiros', d);
+    info = db.prepare(sql).run(...valores);
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE constraint failed')) {
+      return { erro: 'Este aluno já possui contrato neste ano letivo.', status: 409 };
+    }
+    throw e;
+  }
 
   const contrato = db.prepare('SELECT * FROM contratos_financeiros WHERE id = ?').get(info.lastInsertRowid);
-  const criadas = gerarParcelas(contrato);
+  const parcelas = gerarParcelas(contrato);
+  return { contrato, parcelas };
+}
 
-  log(req, 'criar', 'contratos_financeiros', contrato.id, `aluno ${d.aluno_id} · ${criadas} parcelas`);
-  res.status(201).json({ id: contrato.id, parcelas: criadas });
-}, { 'contratos_financeiros.aluno_id, contratos_financeiros.ano_letivo': 'Este aluno já possui contrato neste ano letivo.' }));
+router.post('/contratos', rota((req, res) => {
+  const r = criarContrato(req.body);
+  if (r.erro) return res.status(r.status).json({ error: r.erro });
+
+  log(req, 'criar', 'contratos_financeiros', r.contrato.id, `aluno ${r.contrato.aluno_id} · ${r.parcelas} parcelas`);
+  res.status(201).json({ id: r.contrato.id, parcelas: r.parcelas });
+}));
 
 router.put('/contratos/:id', rota((req, res) => {
   const id = Number(req.params.id);
@@ -270,6 +363,206 @@ router.delete('/contratos/:id', rota((req, res) => {
   db.prepare('DELETE FROM contratos_financeiros WHERE id = ?').run(id);
   log(req, 'excluir', 'contratos_financeiros', id, null);
   res.json({ ok: true });
+}));
+
+// ── Montagem de plano por lote (família) ──────────────────────
+
+/** Detecta novo/antigo pelo histórico: sem contrato em ano anterior = novo. */
+function detectarTipoAluno(alunoId, anoLetivo) {
+  const teveAntes = db.prepare(
+    'SELECT 1 FROM contratos_financeiros WHERE aluno_id = ? AND ano_letivo < ? LIMIT 1'
+  ).get(alunoId, anoLetivo);
+  return teveAntes ? 'antigo' : 'novo';
+}
+
+/**
+ * Valor base do plano pra uma turma/tipo de aluno, pela matriz de
+ * plano_valores. Prioridade: (turma exata+tipo exato) → (turma exata+ambos)
+ * → (turma NULL+tipo exato) → (turma NULL+ambos) → planos_pagamento.valor_mensalidade.
+ */
+function valorBasePlano(planoId, turmaId, tipoAluno) {
+  const linha = db.prepare(`
+    SELECT valor_mensalidade FROM plano_valores
+     WHERE plano_id = ?
+       AND (turma_id = ? OR turma_id IS NULL)
+       AND (tipo_aluno = ? OR tipo_aluno = 'ambos')
+     ORDER BY (turma_id = ?) DESC, (tipo_aluno = ?) DESC
+     LIMIT 1`
+  ).get(planoId, turmaId, tipoAluno, turmaId, tipoAluno);
+  if (linha) return linha.valor_mensalidade;
+  return db.prepare('SELECT valor_mensalidade FROM planos_pagamento WHERE id = ?').get(planoId).valor_mensalidade;
+}
+
+router.get('/responsaveis/:id/filhos-matriculados', rota((req, res) => {
+  const responsavelId = Number(req.params.id);
+  const anoLetivo = Number(req.query.ano_letivo) || new Date().getFullYear();
+
+  const filhos = db.prepare(`
+    SELECT a.id, a.nome, a.matricula, a.turma_id, a.data_nascimento, a.data_matricula, t.nome AS turma_nome
+      FROM aluno_responsaveis ar
+      JOIN alunos a ON a.id = ar.aluno_id
+      LEFT JOIN turmas t ON t.id = a.turma_id
+     WHERE ar.responsavel_id = ? AND a.situacao = 'matriculado'
+     ORDER BY COALESCE(a.data_matricula, a.criado_em)`
+  ).all(responsavelId);
+
+  res.json(filhos.map(a => ({
+    ...a,
+    tipo_aluno: detectarTipoAluno(a.id, anoLetivo),
+    ja_tem_contrato: !!db.prepare(
+      'SELECT 1 FROM contratos_financeiros WHERE aluno_id = ? AND ano_letivo = ?'
+    ).get(a.id, anoLetivo),
+  })));
+}));
+
+router.post('/contratos/lote', rota((req, res) => {
+  const { responsavel_id, ano_letivo, plano_id, alunos } = req.body;
+  const responsavelId = Number(responsavel_id);
+  const anoLetivo = Number(ano_letivo) || new Date().getFullYear();
+  const planoId = Number(plano_id);
+
+  if (!responsavelId) return res.status(400).json({ error: 'Selecione o responsável.' });
+  const plano = db.prepare('SELECT * FROM planos_pagamento WHERE id = ?').get(planoId);
+  if (!plano) return res.status(400).json({ error: 'Plano não encontrado.' });
+  if (!Array.isArray(alunos) || !alunos.length) return res.status(400).json({ error: 'Selecione ao menos um aluno.' });
+
+  // Posição na família: todos os filhos matriculados do responsável, ordenados
+  // por data de matrícula (quem matriculou primeiro é o 1º filho) — inclui
+  // contratos já existentes de outras sessões, não só os deste lote.
+  const filhosFamilia = db.prepare(`
+    SELECT a.id FROM aluno_responsaveis ar
+      JOIN alunos a ON a.id = ar.aluno_id
+     WHERE ar.responsavel_id = ? AND a.situacao = 'matriculado'
+     ORDER BY COALESCE(a.data_matricula, a.criado_em)`
+  ).all(responsavelId).map(a => a.id);
+
+  const resultados = [];
+  let parcelasTotais = 0;
+
+  for (const item of alunos) {
+    const alunoId = Number(item.aluno_id);
+    const aluno = db.prepare('SELECT * FROM alunos WHERE id = ?').get(alunoId);
+    if (!aluno) { resultados.push({ aluno_id: alunoId, erro: 'Aluno não encontrado.' }); continue; }
+
+    const posicao = filhosFamilia.indexOf(alunoId) + 1;
+    let descontoIrmao = 0;
+    if (posicao === 2) descontoIrmao = Number(plano.desconto_irmao2_percentual) || 0;
+    else if (posicao >= 3) descontoIrmao = Number(plano.desconto_irmao3_percentual) || 0;
+
+    const tipoAluno = ['novo', 'antigo'].includes(item.tipo_aluno)
+      ? item.tipo_aluno
+      : detectarTipoAluno(alunoId, anoLetivo);
+
+    const valorBase = valorBasePlano(planoId, aluno.turma_id, tipoAluno);
+
+    const r = criarContrato({
+      aluno_id: alunoId,
+      plano_id: planoId,
+      responsavel_id: responsavelId,
+      ano_letivo: anoLetivo,
+      valor_mensalidade: valorBase,
+      desconto_percentual: item.desconto_percentual || 0,
+      bolsa_percentual: item.bolsa_percentual || 0,
+      desconto_irmao_percentual: descontoIrmao,
+      tipo_aluno: tipoAluno,
+    });
+
+    if (r.erro) {
+      resultados.push({ aluno_id: alunoId, erro: r.erro });
+    } else {
+      resultados.push({ aluno_id: alunoId, contrato_id: r.contrato.id, parcelas: r.parcelas, posicao, tipo_aluno: tipoAluno });
+      parcelasTotais += r.parcelas;
+    }
+  }
+
+  const criados = resultados.filter(r => !r.erro).length;
+  log(req, 'criar_lote', 'contratos_financeiros', null, `responsável ${responsavelId} · ${criados}/${alunos.length} contrato(s)`);
+  res.status(criados ? 201 : 400).json({ criados, parcelas_totais: parcelasTotais, resultados });
+}));
+
+// ── Reajuste geral ──────────────────────────────────────────────
+
+function aplicarPercentual(valor, percentual) {
+  return Number((Number(valor) * (1 + percentual / 100)).toFixed(2));
+}
+
+router.post('/reajuste', rota((req, res) => {
+  const { escopo, referencia, retroativo, confirmar } = req.body;
+  const pct = Number(req.body.percentual);
+
+  if (!['geral', 'turno', 'turma'].includes(escopo)) return res.status(400).json({ error: 'Escopo inválido.' });
+  if (!pct || pct <= -100 || pct > 500) return res.status(400).json({ error: 'Informe um percentual de reajuste válido.' });
+  if (escopo !== 'geral' && !referencia) return res.status(400).json({ error: 'Informe a referência (turno ou turma) do reajuste.' });
+
+  let turmaIds = [];
+  if (escopo === 'turma') {
+    turmaIds = [Number(referencia)];
+  } else if (escopo === 'turno') {
+    turmaIds = db.prepare('SELECT id FROM turmas WHERE turno = ?').all(referencia).map(t => t.id);
+  }
+
+  const planosBase = escopo === 'geral'
+    ? db.prepare('SELECT id, valor_mensalidade FROM planos_pagamento WHERE ativo = 1').all()
+    : [];
+
+  let valoresLinhas = [];
+  if (escopo === 'geral') {
+    valoresLinhas = db.prepare('SELECT * FROM plano_valores').all();
+  } else if (turmaIds.length) {
+    valoresLinhas = db.prepare(
+      `SELECT * FROM plano_valores WHERE turma_id IN (${turmaIds.map(() => '?').join(',')})`
+    ).all(...turmaIds);
+  }
+
+  let contratos = [];
+  if (retroativo) {
+    if (escopo === 'geral') {
+      contratos = db.prepare(`SELECT * FROM contratos_financeiros WHERE status = 'ativo'`).all();
+    } else if (turmaIds.length) {
+      contratos = db.prepare(`
+        SELECT c.* FROM contratos_financeiros c
+          JOIN alunos a ON a.id = c.aluno_id
+         WHERE c.status = 'ativo' AND a.turma_id IN (${turmaIds.map(() => '?').join(',')})`
+      ).all(...turmaIds);
+    }
+  }
+
+  const planosAfetados = planosBase.length + valoresLinhas.length;
+
+  if (!confirmar) {
+    return res.json({
+      planos_afetados: planosAfetados,
+      contratos_afetados: contratos.length,
+      previa: {
+        planos: planosBase.map(p => ({ id: p.id, de: p.valor_mensalidade, para: aplicarPercentual(p.valor_mensalidade, pct) })),
+      },
+    });
+  }
+
+  const aplicar = db.transaction(() => {
+    const upPlano = db.prepare('UPDATE planos_pagamento SET valor_mensalidade = ? WHERE id = ?');
+    for (const p of planosBase) upPlano.run(aplicarPercentual(p.valor_mensalidade, pct), p.id);
+
+    const upValor = db.prepare('UPDATE plano_valores SET valor_mensalidade = ? WHERE id = ?');
+    for (const v of valoresLinhas) upValor.run(aplicarPercentual(v.valor_mensalidade, pct), v.id);
+
+    const upContrato = db.prepare('UPDATE contratos_financeiros SET valor_mensalidade = ? WHERE id = ?');
+    for (const c of contratos) {
+      upContrato.run(aplicarPercentual(c.valor_mensalidade, pct), c.id);
+      const atualizado = db.prepare('SELECT * FROM contratos_financeiros WHERE id = ?').get(c.id);
+      gerarParcelas(atualizado);
+    }
+
+    db.prepare(`
+      INSERT INTO reajustes_historico (escopo, referencia, percentual, retroativo, planos_afetados, contratos_afetados, aplicado_por, criado_em)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(escopo, referencia != null ? String(referencia) : null, pct, retroativo ? 1 : 0,
+          planosAfetados, contratos.length, req.usuario?.id ?? null, agora());
+  });
+  aplicar();
+
+  log(req, 'reajuste', 'planos_pagamento', null, `${escopo} ${pct}% · ${contratos.length} contrato(s) retroativo=${!!retroativo}`);
+  res.json({ ok: true, planos_afetados: planosAfetados, contratos_afetados: contratos.length });
 }));
 
 // ══════════════════════ MENSALIDADES ══════════════════════════

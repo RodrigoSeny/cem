@@ -375,16 +375,45 @@ CREATE INDEX IF NOT EXISTS idx_msgdest_resp ON mensagem_destinatarios (responsav
 
 -- Planos de pagamento praticados pela escola
 CREATE TABLE IF NOT EXISTS planos_pagamento (
-  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome               TEXT NOT NULL,
-  valor_mensalidade  REAL NOT NULL DEFAULT 0,
-  taxa_matricula     REAL NOT NULL DEFAULT 0,
-  num_parcelas       INTEGER NOT NULL DEFAULT 12,
-  dia_vencimento     INTEGER NOT NULL DEFAULT 10,
-  descricao          TEXT,
-  ativo              INTEGER NOT NULL DEFAULT 1,
-  criado_em          TEXT DEFAULT (datetime('now','localtime')),
+  id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome                        TEXT NOT NULL,
+  valor_mensalidade           REAL NOT NULL DEFAULT 0,
+  taxa_matricula              REAL NOT NULL DEFAULT 0,
+  num_parcelas                INTEGER NOT NULL DEFAULT 12,
+  dia_vencimento              INTEGER NOT NULL DEFAULT 10,
+  descricao                   TEXT,
+  ativo                       INTEGER NOT NULL DEFAULT 1,
+  -- Desconto por irmão matriculado: incide sobre o valor já líquido do
+  -- desconto/bolsa manual do contrato (composto, não somado).
+  desconto_irmao2_percentual  REAL NOT NULL DEFAULT 0,
+  desconto_irmao3_percentual  REAL NOT NULL DEFAULT 0,
+  criado_em                   TEXT DEFAULT (datetime('now','localtime')),
   UNIQUE (nome)
+);
+
+-- Valores do plano por turma e por aluno novo/antigo. turma_id NULL = vale
+-- pra qualquer turma sem linha específica; tipo_aluno 'ambos' = mesmo valor
+-- pros dois. Sem nenhuma linha, o contrato usa planos_pagamento.valor_mensalidade.
+CREATE TABLE IF NOT EXISTS plano_valores (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  plano_id           INTEGER NOT NULL REFERENCES planos_pagamento(id) ON DELETE CASCADE,
+  turma_id           INTEGER REFERENCES turmas(id) ON DELETE CASCADE,
+  tipo_aluno         TEXT NOT NULL DEFAULT 'ambos' CHECK (tipo_aluno IN ('novo','antigo','ambos')),
+  valor_mensalidade  REAL NOT NULL,
+  UNIQUE (plano_id, turma_id, tipo_aluno)
+);
+
+-- Histórico de reajustes gerais aplicados (auditoria)
+CREATE TABLE IF NOT EXISTS reajustes_historico (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  escopo              TEXT NOT NULL CHECK (escopo IN ('geral','turno','turma')),
+  referencia          TEXT,
+  percentual          REAL NOT NULL,
+  retroativo          INTEGER NOT NULL DEFAULT 0,
+  planos_afetados     INTEGER NOT NULL DEFAULT 0,
+  contratos_afetados  INTEGER NOT NULL DEFAULT 0,
+  aplicado_por        INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  criado_em           TEXT DEFAULT (datetime('now','localtime'))
 );
 
 -- Contrato financeiro do aluno no ano letivo
@@ -397,6 +426,8 @@ CREATE TABLE IF NOT EXISTS contratos_financeiros (
   valor_mensalidade    REAL NOT NULL,
   desconto_percentual  REAL NOT NULL DEFAULT 0,
   bolsa_percentual     REAL NOT NULL DEFAULT 0,
+  desconto_irmao_percentual REAL NOT NULL DEFAULT 0,
+  tipo_aluno           TEXT CHECK (tipo_aluno IN ('novo','antigo')),
   dia_vencimento       INTEGER NOT NULL DEFAULT 10,
   num_parcelas         INTEGER NOT NULL DEFAULT 12,
   mes_inicio           INTEGER NOT NULL DEFAULT 1,
@@ -747,6 +778,23 @@ function migrar() {
     recriar2();
     db.pragma('foreign_keys = ON');
     console.log('↗️  anexos agora aceitam mensagem.');
+  }
+
+  // 7. Montagem de plano por lote: valores por turma/tipo de aluno e
+  //    desconto de irmãos definido no plano.
+  if (!colunas('planos_pagamento').includes('desconto_irmao2_percentual')) {
+    db.exec(`
+      ALTER TABLE planos_pagamento ADD COLUMN desconto_irmao2_percentual REAL NOT NULL DEFAULT 0;
+      ALTER TABLE planos_pagamento ADD COLUMN desconto_irmao3_percentual REAL NOT NULL DEFAULT 0;
+    `);
+    console.log('↗️  planos_pagamento.desconto_irmao{2,3}_percentual criadas.');
+  }
+  if (!colunas('contratos_financeiros').includes('desconto_irmao_percentual')) {
+    db.exec(`
+      ALTER TABLE contratos_financeiros ADD COLUMN desconto_irmao_percentual REAL NOT NULL DEFAULT 0;
+      ALTER TABLE contratos_financeiros ADD COLUMN tipo_aluno TEXT CHECK (tipo_aluno IN ('novo','antigo'));
+    `);
+    console.log('↗️  contratos_financeiros.desconto_irmao_percentual/tipo_aluno criadas.');
   }
 }
 

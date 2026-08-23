@@ -235,6 +235,8 @@ const Financeiro = {
     limparFormulario('formPlano');
     document.getElementById('formPlano').querySelector('[data-campo=num_parcelas]').value = 12;
     document.getElementById('formPlano').querySelector('[data-campo=dia_vencimento]').value = 10;
+    document.getElementById('planoValoresBox').classList.add('oculto');
+    this.valoresPlano = [];
     await this.listarPlanos();
     abrirModal('modalPlanos');
   },
@@ -262,7 +264,7 @@ const Financeiro = {
            <div class="titulo">Nenhum plano cadastrado</div></div></td></tr>`;
   },
 
-  editarPlano(id) {
+  async editarPlano(id) {
     const p = this.planos.find(x => x.id === id);
     if (!p) return;
     this.editandoPlano = id;
@@ -273,6 +275,11 @@ const Financeiro = {
     });
     document.getElementById('btnSalvarPlano').textContent = '💾 Salvar alterações';
     document.getElementById('btnCancelarPlano').classList.remove('oculto');
+
+    document.getElementById('planoValoresBox').classList.remove('oculto');
+    try { this.valoresPlano = await Api.get(`/api/financeiro/planos/${id}/valores`); }
+    catch { this.valoresPlano = []; }
+    this.renderValoresPlano();
   },
 
   cancelarEdicaoPlano() {
@@ -280,6 +287,51 @@ const Financeiro = {
     limparFormulario('formPlano');
     document.getElementById('btnSalvarPlano').textContent = '💾 Adicionar plano';
     document.getElementById('btnCancelarPlano').classList.add('oculto');
+    document.getElementById('planoValoresBox').classList.add('oculto');
+    this.valoresPlano = [];
+  },
+
+  // ── Matriz de valores por turma / tipo de aluno ─────────────
+  renderValoresPlano() {
+    const corpo = document.getElementById('planoValoresCorpo');
+    if (!this.valoresPlano.length) {
+      corpo.innerHTML = `<tr><td colspan="4"><div class="vazio" style="padding:14px">
+        <div class="sub">Nenhuma linha específica — todos usam a mensalidade base.</div></div></td></tr>`;
+      return;
+    }
+    corpo.innerHTML = this.valoresPlano.map((v, i) => `
+      <tr>
+        <td><select class="form-select" data-idx="${i}" onchange="Financeiro.valoresPlano[${i}].turma_id = this.value || null">
+              <option value="" ${!v.turma_id ? 'selected' : ''}>Todas as turmas</option>
+              ${Cache.turmas.map(t => `<option value="${t.id}" ${String(t.id) === String(v.turma_id) ? 'selected' : ''}>${escapar(t.nome)}</option>`).join('')}
+            </select></td>
+        <td><select class="form-select" onchange="Financeiro.valoresPlano[${i}].tipo_aluno = this.value">
+              <option value="ambos" ${v.tipo_aluno === 'ambos' ? 'selected' : ''}>Ambos</option>
+              <option value="novo" ${v.tipo_aluno === 'novo' ? 'selected' : ''}>Novo</option>
+              <option value="antigo" ${v.tipo_aluno === 'antigo' ? 'selected' : ''}>Antigo</option>
+            </select></td>
+        <td><input class="form-input" value="${Number(v.valor_mensalidade).toFixed(2).replace('.', ',')}"
+              onchange="Financeiro.valoresPlano[${i}].valor_mensalidade = paraNumero(this.value)"></td>
+        <td class="acoes"><button class="btn-ico perigo" onclick="Financeiro.removerLinhaValor(${i})" title="Remover">🗑️</button></td>
+      </tr>`).join('');
+  },
+
+  adicionarLinhaValor() {
+    this.valoresPlano.push({ turma_id: null, tipo_aluno: 'ambos', valor_mensalidade: 0 });
+    this.renderValoresPlano();
+  },
+
+  removerLinhaValor(i) {
+    this.valoresPlano.splice(i, 1);
+    this.renderValoresPlano();
+  },
+
+  async salvarValoresPlano() {
+    if (!this.editandoPlano) return;
+    try {
+      await Api.put(`/api/financeiro/planos/${this.editandoPlano}/valores`, { valores: this.valoresPlano });
+      toast('Valores do plano salvos.');
+    } catch (e) { toastErro(e.message); }
   },
 
   async salvarPlano() {
@@ -287,6 +339,14 @@ const Financeiro = {
     if (!d.nome) return toastErro('Informe o nome do plano.');
     d.valor_mensalidade = Number(String(d.valor_mensalidade || '0').replace(/\./g, '').replace(',', '.'));
     d.taxa_matricula = Number(String(d.taxa_matricula || '0').replace(/\./g, '').replace(',', '.'));
+
+    for (const [campo, rotulo] of [['desconto_irmao2_percentual', 'O desconto do 2º filho'], ['desconto_irmao3_percentual', 'O desconto do 3º filho']]) {
+      const v = Number(d[campo] || 0);
+      if (v < 0 || (v > 0 && v < 0.01) || v > 99.99) {
+        return toastErro(`${rotulo} deve ficar entre 0,01% e 99,99% (ou 0, para não aplicar).`);
+      }
+      d[campo] = v;
+    }
 
     try {
       if (this.editandoPlano) {
@@ -483,6 +543,219 @@ const Financeiro = {
       toast('Contrato excluído.');
       this.carregarContratos();
     } catch (e) { toastErro(e.message); }
+  },
+
+  // ══════════════════ MONTAGEM DE PLANO POR LOTE ══════════════
+  async abrirLote() {
+    if (!this.planos.length) {
+      try { this.planos = await Api.get('/api/financeiro/planos'); } catch {}
+    }
+    this.loteFilhos = [];
+    this.loteMatriz = [];
+
+    document.getElementById('loteResponsavel').innerHTML =
+      '<option value="">Selecione…</option>' +
+      Cache.responsaveis.map(r => `<option value="${r.id}">${escapar(r.nome)}</option>`).join('');
+    document.getElementById('loteAnoLetivo').value = new Date().getFullYear();
+    document.getElementById('lotePlano').innerHTML =
+      this.planos.filter(p => p.ativo).map(p => `<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
+    document.getElementById('loteFilhosBox').innerHTML = '';
+
+    abrirModal('modalLote');
+  },
+
+  async carregarFilhosLote() {
+    const responsavelId = document.getElementById('loteResponsavel').value;
+    const anoLetivo = document.getElementById('loteAnoLetivo').value;
+    const box = document.getElementById('loteFilhosBox');
+    if (!responsavelId) { box.innerHTML = ''; this.loteFilhos = []; return; }
+
+    box.innerHTML = '<div class="vazio" style="padding:16px"><span class="spinner"></span></div>';
+    try {
+      this.loteFilhos = await Api.get(`/api/financeiro/responsaveis/${responsavelId}/filhos-matriculados`, { ano_letivo: anoLetivo });
+    } catch (e) { box.innerHTML = ''; return toastErro(e.message); }
+
+    if (!this.loteFilhos.length) {
+      box.innerHTML = `<div class="vazio" style="padding:16px"><span class="ico">🎓</span>
+        <div class="titulo">Nenhum filho matriculado encontrado</div></div>`;
+      return;
+    }
+
+    await this.recalcularLote();
+  },
+
+  /** Espelha a prioridade de valorBasePlano do servidor, só pra prévia. */
+  _valorBaseLote(turmaId, tipoAluno) {
+    const norm = v => (v === '' || v == null ? null : String(v));
+    turmaId = norm(turmaId);
+    const achar = (t, tipo) => this.loteMatriz.find(v => norm(v.turma_id) === t && v.tipo_aluno === tipo);
+    const linha = achar(turmaId, tipoAluno) || achar(turmaId, 'ambos') ||
+                  achar(null, tipoAluno) || achar(null, 'ambos');
+    if (linha) return Number(linha.valor_mensalidade);
+    const plano = this.planos.find(p => String(p.id) === String(document.getElementById('lotePlano').value));
+    return plano ? Number(plano.valor_mensalidade) : 0;
+  },
+
+  async recalcularLote() {
+    const box = document.getElementById('loteFilhosBox');
+    const planoId = document.getElementById('lotePlano').value;
+    if (!planoId || !this.loteFilhos.length) { box.innerHTML = ''; return; }
+
+    try { this.loteMatriz = await Api.get(`/api/financeiro/planos/${planoId}/valores`); }
+    catch { this.loteMatriz = []; }
+
+    const plano = this.planos.find(p => String(p.id) === String(planoId));
+
+    box.innerHTML = `
+      <div class="secao-titulo">Filhos matriculados</div>
+      <div class="form-hint mb-2">A posição na família (1º, 2º, 3º…) considera todos os filhos matriculados, por ordem de matrícula.</div>
+      <div class="tabela-wrap"><table class="tabela">
+        <thead><tr><th></th><th>Aluno</th><th>Turma</th><th>Tipo</th><th>Desconto (%)</th><th>Bolsa (%)</th><th>Mensalidade prevista</th></tr></thead>
+        <tbody>
+          ${this.loteFilhos.map((f, i) => {
+            const posicao = i + 1;
+            const descontoIrmao = posicao === 2 ? Number(plano.desconto_irmao2_percentual || 0)
+                                 : posicao >= 3 ? Number(plano.desconto_irmao3_percentual || 0) : 0;
+            const base = this._valorBaseLote(f.turma_id, f.tipo_aluno);
+            return `
+            <tr data-lote-linha="${i}">
+              <td><input type="checkbox" data-lote-check="${i}" ${f.ja_tem_contrato ? '' : 'checked'}></td>
+              <td>
+                <div style="font-weight:600">${escapar(f.nome)}</div>
+                ${f.ja_tem_contrato ? '<div style="font-size:11px;color:var(--txt3)">já tem contrato neste ano</div>' : ''}
+              </td>
+              <td>${escapar(f.turma_nome || '—')}</td>
+              <td><select class="form-select" data-lote-tipo="${i}" onchange="Financeiro.atualizarPreviaLote()">
+                    <option value="novo" ${f.tipo_aluno === 'novo' ? 'selected' : ''}>Novo</option>
+                    <option value="antigo" ${f.tipo_aluno === 'antigo' ? 'selected' : ''}>Antigo</option>
+                  </select></td>
+              <td><input class="form-input" data-lote-desc="${i}" value="0" style="width:70px" onchange="Financeiro.atualizarPreviaLote()"></td>
+              <td><input class="form-input" data-lote-bolsa="${i}" value="0" style="width:70px" onchange="Financeiro.atualizarPreviaLote()"></td>
+              <td class="mono" data-lote-previa="${i}">
+                ${moedaBR(base)}${descontoIrmao > 0 ? ` <span class="badge badge-gold">-${descontoIrmao}% irmão</span>` : ''}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>`;
+
+    this.atualizarPreviaLote();
+  },
+
+  atualizarPreviaLote() {
+    const plano = this.planos.find(p => String(p.id) === String(document.getElementById('lotePlano').value));
+    this.loteFilhos.forEach((f, i) => {
+      const tipoSel = document.querySelector(`[data-lote-tipo="${i}"]`);
+      const tipoAluno = tipoSel ? tipoSel.value : f.tipo_aluno;
+      const posicao = i + 1;
+      const descontoIrmao = posicao === 2 ? Number(plano.desconto_irmao2_percentual || 0)
+                           : posicao >= 3 ? Number(plano.desconto_irmao3_percentual || 0) : 0;
+      const base = this._valorBaseLote(f.turma_id, tipoAluno);
+      const desc = paraNumero(document.querySelector(`[data-lote-desc="${i}"]`)?.value);
+      const bolsa = paraNumero(document.querySelector(`[data-lote-bolsa="${i}"]`)?.value);
+      const aposManual = base * (1 - Math.min((desc + bolsa) / 100, 1));
+      const final = aposManual * (1 - Math.min(descontoIrmao / 100, 1));
+
+      const cel = document.querySelector(`[data-lote-previa="${i}"]`);
+      if (cel) cel.innerHTML = `${moedaBR(final)}${descontoIrmao > 0 ? ` <span class="badge badge-gold">-${descontoIrmao}% irmão</span>` : ''}`;
+    });
+  },
+
+  async confirmarLote() {
+    const responsavelId = document.getElementById('loteResponsavel').value;
+    const anoLetivo = document.getElementById('loteAnoLetivo').value;
+    const planoId = document.getElementById('lotePlano').value;
+    if (!responsavelId) return toastErro('Selecione o responsável.');
+    if (!planoId) return toastErro('Selecione o plano.');
+
+    const alunos = [];
+    this.loteFilhos.forEach((f, i) => {
+      const check = document.querySelector(`[data-lote-check="${i}"]`);
+      if (!check || !check.checked) return;
+      alunos.push({
+        aluno_id: f.id,
+        tipo_aluno: document.querySelector(`[data-lote-tipo="${i}"]`)?.value,
+        desconto_percentual: paraNumero(document.querySelector(`[data-lote-desc="${i}"]`)?.value),
+        bolsa_percentual: paraNumero(document.querySelector(`[data-lote-bolsa="${i}"]`)?.value),
+      });
+    });
+    if (!alunos.length) return toastErro('Selecione ao menos um aluno.');
+
+    try {
+      const r = await Api.post('/api/financeiro/contratos/lote', {
+        responsavel_id: responsavelId, ano_letivo: anoLetivo, plano_id: planoId, alunos,
+      });
+      const erros = r.resultados.filter(x => x.erro);
+      fecharModal('modalLote');
+      toast(`${r.criados} contrato(s) criado(s), ${r.parcelas_totais} parcela(s).` +
+        (erros.length ? ` ${erros.length} com erro: ${erros.map(e => e.erro).join('; ')}` : ''),
+        erros.length ? 'aviso' : 'sucesso');
+      this.carregarContratos();
+    } catch (e) { toastErro(e.message); }
+  },
+
+  // ══════════════════════ REAJUSTE GERAL ══════════════════════
+  abrirReajuste() {
+    document.getElementById('reajusteEscopo').value = 'geral';
+    document.getElementById('reajustePercentual').value = '';
+    document.getElementById('reajusteRetroativo').checked = false;
+    document.getElementById('reajustePrevia').innerHTML = '';
+    document.getElementById('btnConfirmarReajuste').classList.add('oculto');
+    this.mudarEscopoReajuste();
+    abrirModal('modalReajuste');
+  },
+
+  mudarEscopoReajuste() {
+    const escopo = document.getElementById('reajusteEscopo').value;
+    const box = document.getElementById('reajusteRefBox');
+    const sel = document.getElementById('reajusteReferencia');
+    document.getElementById('reajustePrevia').innerHTML = '';
+    document.getElementById('btnConfirmarReajuste').classList.add('oculto');
+
+    if (escopo === 'geral') { box.classList.add('oculto'); return; }
+    box.classList.remove('oculto');
+    if (escopo === 'turno') {
+      sel.innerHTML = Object.entries(TURNOS).map(([v, r]) => `<option value="${v}">${r}</option>`).join('');
+    } else {
+      sel.innerHTML = Cache.turmas.map(t => `<option value="${t.id}">${escapar(t.nome)}</option>`).join('');
+    }
+  },
+
+  async simularReajuste() {
+    const r = await this._chamarReajuste(false);
+    if (!r) return;
+    document.getElementById('reajustePrevia').innerHTML = `
+      <div class="card card-p mt-2" style="background:var(--surface)">
+        <div>📊 <strong>${r.planos_afetados}</strong> plano(s)/valor(es) afetado(s)</div>
+        <div>📄 <strong>${r.contratos_afetados}</strong> contrato(s) ativo(s) ${r.contratos_afetados ? 'seriam recalculados' : ''}</div>
+      </div>`;
+    document.getElementById('btnConfirmarReajuste').classList.remove('oculto');
+  },
+
+  async aplicarReajuste() {
+    const ok = await confirmar('Aplicar este reajuste agora? Essa ação altera valores financeiros em massa.',
+      { titulo: 'Aplicar reajuste', textoOk: 'Aplicar' });
+    if (!ok) return;
+    const r = await this._chamarReajuste(true);
+    if (!r) return;
+    fecharModal('modalReajuste');
+    toast(`Reajuste aplicado. ${r.planos_afetados} valor(es) e ${r.contratos_afetados} contrato(s) atualizados.`);
+    this.listarPlanos().catch(() => {});
+    this.carregarPlanosTabela?.().catch(() => {});
+  },
+
+  async _chamarReajuste(confirmar) {
+    const escopo = document.getElementById('reajusteEscopo').value;
+    const percentual = paraNumero(document.getElementById('reajustePercentual').value);
+    const referencia = document.getElementById('reajusteReferencia').value;
+    const retroativo = document.getElementById('reajusteRetroativo').checked;
+
+    if (!percentual) { toastErro('Informe o percentual de reajuste.'); return null; }
+    if (escopo !== 'geral' && !referencia) { toastErro('Selecione a referência.'); return null; }
+
+    try {
+      return await Api.post('/api/financeiro/reajuste', { escopo, referencia, percentual, retroativo, confirmar });
+    } catch (e) { toastErro(e.message); return null; }
   },
 
   // ══════════════════════ COBRANÇA AVULSA ═════════════════════

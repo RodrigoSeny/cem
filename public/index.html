@@ -1573,11 +1573,36 @@
         <div class="form-group"><label class="form-label">Parcelas</label><input type="number" class="form-input" data-campo="num_parcelas" min="1" max="12" value="12"></div>
         <div class="form-group"><label class="form-label">Dia do vencimento</label><input type="number" class="form-input" data-campo="dia_vencimento" min="1" max="31" value="10"></div>
         <div class="form-group col-2"><label class="form-label">Descrição</label><input class="form-input" data-campo="descricao"></div>
+        <div class="form-group">
+          <label class="form-label">Desconto 2º filho (%)</label>
+          <input type="number" class="form-input" data-campo="desconto_irmao2_percentual" min="0" max="99.99" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Desconto 3º filho em diante (%)</label>
+          <input type="number" class="form-input" data-campo="desconto_irmao3_percentual" min="0" max="99.99" step="0.01" value="0">
+        </div>
+        <div class="form-hint col-2">Incide sobre o valor já líquido do desconto/bolsa do contrato (composto, não somado).</div>
         <div class="form-group col-4">
           <button class="btn btn-primary" onclick="Financeiro.salvarPlano()" id="btnSalvarPlano">💾 Adicionar plano</button>
           <button class="btn btn-ghost oculto" id="btnCancelarPlano" onclick="Financeiro.cancelarEdicaoPlano()">Cancelar edição</button>
         </div>
       </div>
+
+      <div class="card card-p oculto" id="planoValoresBox" style="background:var(--surface)">
+        <div class="secao-titulo" style="margin-top:0">Valores por turma e tipo de aluno</div>
+        <div class="form-hint mb-2">Sem nenhuma linha, o contrato usa a mensalidade base do plano acima.</div>
+        <div class="tabela-wrap">
+          <table class="tabela">
+            <thead><tr><th>Turma</th><th>Tipo de aluno</th><th>Mensalidade (R$)</th><th class="acoes"></th></tr></thead>
+            <tbody id="planoValoresCorpo"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="Financeiro.adicionarLinhaValor()">＋ Adicionar linha</button>
+          <button class="btn btn-primary btn-sm" onclick="Financeiro.salvarValoresPlano()">💾 Salvar valores</button>
+        </div>
+      </div>
+
       <div class="secao-titulo">Planos cadastrados</div>
       <div class="tabela-wrap">
         <table class="tabela">
@@ -1587,6 +1612,79 @@
       </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="fecharModal('modalPlanos')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Montagem de plano por lote (família) -->
+<div class="modal-overlay" id="modalLote">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3>🧙 Montar plano de pagamento</h3><div class="sub">Cria o contrato de 1 ou mais filhos matriculados de uma vez</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalLote')">✕</button>
+    </div>
+    <div class="modal-body" id="formLote">
+      <div class="form-grid">
+        <div class="form-group col-2">
+          <label class="form-label">Responsável <span class="req">*</span></label>
+          <select class="form-select" id="loteResponsavel" onchange="Financeiro.carregarFilhosLote()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ano letivo <span class="req">*</span></label>
+          <input type="number" class="form-input" id="loteAnoLetivo" onchange="Financeiro.carregarFilhosLote()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Plano <span class="req">*</span></label>
+          <select class="form-select" id="lotePlano" onchange="Financeiro.recalcularLote()"></select>
+        </div>
+      </div>
+      <div id="loteFilhosBox"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalLote')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Financeiro.confirmarLote()">💾 Criar contratos</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reajuste geral -->
+<div class="modal-overlay" id="modalReajuste">
+  <div class="modal sm">
+    <div class="modal-head">
+      <div><h3>📈 Aplicar reajuste</h3><div class="sub">Percentual único, por turno ou por turma</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalReajuste')">✕</button>
+    </div>
+    <div class="modal-body" id="formReajuste">
+      <div class="form-grid">
+        <div class="form-group col-2">
+          <label class="form-label">Escopo</label>
+          <select class="form-select" id="reajusteEscopo" onchange="Financeiro.mudarEscopoReajuste()">
+            <option value="geral">Geral (todos os planos)</option>
+            <option value="turno">Por turno</option>
+            <option value="turma">Por turma</option>
+          </select>
+        </div>
+        <div class="form-group col-2 oculto" id="reajusteRefBox">
+          <label class="form-label">Referência</label>
+          <select class="form-select" id="reajusteReferencia"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Percentual (%)</label>
+          <input type="number" class="form-input" id="reajustePercentual" step="0.01" placeholder="Ex.: 8">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+            <input type="checkbox" id="reajusteRetroativo"> Aplicar também aos contratos ativos
+          </label>
+        </div>
+      </div>
+      <div class="form-hint">Contratos ativos só têm as parcelas em aberto recalculadas — as já pagas nunca são alteradas.</div>
+      <div id="reajustePrevia"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalReajuste')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="Financeiro.simularReajuste()">🔍 Simular</button>
+      <button class="btn btn-primary oculto" id="btnConfirmarReajuste" onclick="Financeiro.aplicarReajuste()">✅ Confirmar reajuste</button>
+    </div>
   </div>
 </div>
 
