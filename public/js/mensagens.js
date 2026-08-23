@@ -5,6 +5,7 @@
 const Mensagens = {
   lista: [],
   tipos: [],
+  editandoId: null,
 
   async carregarTipos() {
     if (this.tipos.length) return this.tipos;
@@ -41,7 +42,7 @@ const Mensagens = {
         <td class="mono" style="font-size:12px;white-space:nowrap">${dataHoraBR(m.criado_em)}</td>
         <td>
           <div style="font-weight:600;font-size:12.5px">${escapar(m.titulo)}</div>
-          <div style="font-size:11px;color:var(--txt3)">por ${escapar(m.criado_nome || '—')}</div>
+          <div style="font-size:11px;color:var(--txt3)">por ${escapar(m.criado_nome || '—')}${m.qtd_anexos ? ` · 📎 ${m.qtd_anexos}` : ''}</div>
           ${m.invalidada_em ? `<div style="font-size:11px" class="c-red">Invalidada: ${escapar(m.invalidada_motivo)}</div>` : ''}
         </td>
         <td><span class="badge badge-cinza">${escapar(nomeTipo(m.tipo))}</span></td>
@@ -78,6 +79,7 @@ const Mensagens = {
   // ── Envio ──────────────────────────────────────────────────
   async abrirNova() {
     await this.carregarTipos();
+    this.editandoId = null;
     limparFormulario('formMensagem');
 
     document.getElementById('msgTipo').innerHTML =
@@ -86,6 +88,8 @@ const Mensagens = {
     document.getElementById('msgAluno').innerHTML = Cache.opcoesAlunos('', 'Selecione o aluno');
     document.getElementById('msgAlvo').value = 'todos';
     document.getElementById('msgCiencia').checked = false;
+    document.getElementById('msgAnexos').innerHTML =
+      '<div class="form-hint">Envie a mensagem primeiro — depois você pode anexar fotos ou documentos.</div>';
 
     this.trocarAlvo();
     abrirModal('modalMensagem');
@@ -113,6 +117,9 @@ const Mensagens = {
   },
 
   async salvar() {
+    // Já enviada nesta sessão do modal — não manda de novo, só o anexo continua liberado.
+    if (this.editandoId) return;
+
     const dados = lerFormulario('formMensagem');
     dados.alvo = document.getElementById('msgAlvo').value;
     dados.exige_ciencia = document.getElementById('msgCiencia').checked ? 1 : 0;
@@ -124,8 +131,9 @@ const Mensagens = {
 
     try {
       const r = await Api.post('/api/mensagens', dados);
-      fecharModal('modalMensagem');
-      toast(`Mensagem enviada a ${r.destinatarios} responsável(is).`);
+      this.editandoId = r.id;
+      toast(`Mensagem enviada a ${r.destinatarios} responsável(is). Agora você pode anexar arquivos.`);
+      UI.painelAnexos('msgAnexos', 'mensagem', r.id);
       this.carregar();
     } catch (e) { toastErro(e.message); }
   },

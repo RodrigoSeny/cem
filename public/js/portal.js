@@ -784,6 +784,7 @@ const Portal = {
             <div class="aluno-nome" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapar(o.titulo)}</div>
             <div class="aluno-info">
               ${dataBR(o.data_ocorrencia)}${o.hora_ocorrencia ? ' ' + escapar(o.hora_ocorrencia) : ''} · ${badgeGravidade(o.gravidade)}
+              ${(o.anexos || []).length ? ' · 📎' : ''}
             </div>
           </div>
           ${pendenteCiencia ? '<span class="badge badge-red">ciência</span>'
@@ -794,6 +795,44 @@ const Portal = {
   },
 
   /** Abre o detalhe da ocorrência em modal e marca como lida na hora. */
+  /**
+   * HTML dos anexos de uma mensagem/ocorrência: imagens viram prévia (clicável,
+   * abre a imagem inteira); os demais formatos continuam como botão "ver anexo".
+   * Chame `Portal._carregarPreviasAnexos(anexos)` depois de inserir esse HTML no DOM.
+   */
+  _blocoAnexos(anexos) {
+    const lista = anexos || [];
+    const imagens = lista.filter(a => (a.mime || '').startsWith('image/'));
+    const outros = lista.filter(a => !(a.mime || '').startsWith('image/'));
+
+    return `
+      ${imagens.length ? `
+        <div class="anexos-preview">
+          ${imagens.map(an => `<img class="anexo-img" id="prev-${an.id}" alt="${escapar(an.nome_original)}">`).join('')}
+        </div>` : ''}
+      ${outros.length ? `
+        <div class="chips" style="margin-top:10px">
+          ${outros.map(an => `
+            <button class="badge badge-blue" style="border:none;cursor:pointer"
+                    onclick="Anexos.abrir(${an.id}, '${escapar(an.nome_original).replace(/'/g, "\\'")}')">
+              ${Anexos.icone(an.mime)} ver anexo
+            </button>`).join('')}
+        </div>` : ''}`;
+  },
+
+  /** Busca as imagens e liga o clique pra abrir a imagem inteira numa aba nova. */
+  _carregarPreviasAnexos(anexos) {
+    for (const an of (anexos || [])) {
+      if (!(an.mime || '').startsWith('image/')) continue;
+      Anexos.obterUrl(an.id).then(url => {
+        const img = document.getElementById('prev-' + an.id);
+        if (!img) { URL.revokeObjectURL(url); return; }
+        img.src = url;
+        img.onclick = () => window.open(url, '_blank');
+      }).catch(() => {});
+    }
+  },
+
   async abrirOcorrencia(id) {
     const o = (this._ocorrencias || []).find(x => x.id === id);
     if (!o) return;
@@ -806,19 +845,13 @@ const Portal = {
       ${o.descricao ? `<div style="font-size:13px;color:var(--txt2);line-height:1.6">${escapar(o.descricao)}</div>` : ''}
       ${o.providencia ? `<div style="font-size:12.5px;color:var(--txt2);margin-top:10px"><strong>Providência:</strong> ${escapar(o.providencia)}</div>` : ''}
       ${o.registrado_nome ? `<div style="font-size:11px;color:var(--txt3);margin-top:10px">Registrado por ${escapar(o.registrado_nome)}</div>` : ''}
-      ${(o.anexos || []).length ? `
-        <div class="chips" style="margin-top:10px">
-          ${o.anexos.map(an => `
-            <button class="badge badge-blue" style="border:none;cursor:pointer"
-                    onclick="Anexos.abrir(${an.id}, '${escapar(an.nome_original).replace(/'/g, "\\'")}')">
-              ${Anexos.icone(an.mime)} ver anexo
-            </button>`).join('')}
-        </div>` : ''}
+      ${this._blocoAnexos(o.anexos)}
       ${o.exige_ciencia ? (o.ciente_em
         ? `<button class="btn-ciente" disabled>✅ Ciência registrada em ${dataHoraBR(o.ciente_em)}</button>`
         : `<button class="btn-ciente" onclick="Portal.darCienciaOcorrencia(${o.id}, this)">Estou ciente</button>`)
         : ''}`;
     abrirModal('modalOcorrenciaApp');
+    this._carregarPreviasAnexos(o.anexos);
 
     if (!o.lido_em) {
       try {
@@ -917,6 +950,7 @@ const Portal = {
             <div class="aluno-nome" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapar(m.titulo)}</div>
             <div class="aluno-info">
               ${dataHoraBR(m.criado_em)} · ${escapar(m.criado_nome || 'Secretaria')}${m.aluno_nome ? ' · ' + escapar(m.aluno_nome) : ''}
+              ${(m.anexos || []).length ? ' · 📎' : ''}
             </div>
           </div>
           ${pendenteCiencia ? '<span class="badge badge-red">ciência</span>'
@@ -936,11 +970,13 @@ const Portal = {
       `${dataHoraBR(m.criado_em)} · ${m.criado_nome || 'Secretaria'}${m.aluno_nome ? ' · ' + m.aluno_nome : ''}`;
     document.getElementById('msgAppCorpo').innerHTML = `
       <div class="msg-texto" style="margin-top:0">${escapar(m.conteudo)}</div>
+      ${this._blocoAnexos(m.anexos)}
       ${m.exige_ciencia ? (m.ciente_em
         ? `<button class="btn-ciente" disabled>✅ Ciência registrada em ${dataHoraBR(m.ciente_em)}</button>`
         : `<button class="btn-ciente" onclick="Portal.darCiencia(${m.id}, this)">Estou ciente</button>`)
         : ''}`;
     abrirModal('modalMensagemApp');
+    this._carregarPreviasAnexos(m.anexos);
 
     if (!m.lido_em) {
       try {

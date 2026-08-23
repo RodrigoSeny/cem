@@ -283,7 +283,7 @@ CREATE INDEX IF NOT EXISTS idx_logs_data ON logs (criado_em);
 -- Genérico: serve a alunos, responsáveis, funcionários e ocorrências.
 CREATE TABLE IF NOT EXISTS anexos (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  entidade       TEXT NOT NULL CHECK (entidade IN ('aluno','responsavel','funcionario','ocorrencia')),
+  entidade       TEXT NOT NULL CHECK (entidade IN ('aluno','responsavel','funcionario','ocorrencia','despesa','mensagem')),
   entidade_id    INTEGER NOT NULL,
   categoria      TEXT NOT NULL DEFAULT 'documento',
   descricao      TEXT,
@@ -712,6 +712,41 @@ function migrar() {
       ALTER TABLE ocorrencias ADD COLUMN invalidada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
     `);
     console.log('↗️  ocorrencias.invalidada_* criadas.');
+  }
+
+  // 6. Anexos passam a aceitar mensagem (fotos/documentos anexados a comunicados).
+  //    O CHECK não é alterável no SQLite: recria a tabela preservando os dados.
+  const ddlAnexos2 = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='anexos'`
+  ).get()?.sql || '';
+
+  if (!ddlAnexos2.includes("'mensagem'")) {
+    const recriar2 = db.transaction(() => {
+      db.exec(`
+        CREATE TABLE anexos_novo (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          entidade       TEXT NOT NULL CHECK (entidade IN ('aluno','responsavel','funcionario','ocorrencia','despesa','mensagem')),
+          entidade_id    INTEGER NOT NULL,
+          categoria      TEXT NOT NULL DEFAULT 'documento',
+          descricao      TEXT,
+          nome_original  TEXT NOT NULL,
+          nome_arquivo   TEXT NOT NULL,
+          mime           TEXT,
+          tamanho        INTEGER,
+          criado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          criado_em      TEXT DEFAULT (datetime('now','localtime'))
+        );
+        INSERT INTO anexos_novo SELECT id, entidade, entidade_id, categoria, descricao,
+               nome_original, nome_arquivo, mime, tamanho, criado_por, criado_em FROM anexos;
+        DROP TABLE anexos;
+        ALTER TABLE anexos_novo RENAME TO anexos;
+        CREATE INDEX IF NOT EXISTS idx_anexos_entidade ON anexos (entidade, entidade_id);
+      `);
+    });
+    db.pragma('foreign_keys = OFF');
+    recriar2();
+    db.pragma('foreign_keys = ON');
+    console.log('↗️  anexos agora aceitam mensagem.');
   }
 }
 

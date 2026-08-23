@@ -18,7 +18,7 @@ const router = express.Router();
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const ENTIDADES = ['aluno', 'responsavel', 'funcionario', 'ocorrencia', 'despesa'];
+const ENTIDADES = ['aluno', 'responsavel', 'funcionario', 'ocorrencia', 'despesa', 'mensagem'];
 
 // Categorias sugeridas na interface (o campo aceita texto livre)
 const CATEGORIAS = [
@@ -100,6 +100,11 @@ function podeResponsavelVer(usuario, anexo) {
   if (anexo.entidade === 'ocorrencia') {
     const o = db.prepare('SELECT aluno_id, visivel_responsavel FROM ocorrencias WHERE id = ?').get(anexo.entidade_id);
     return !!o && o.visivel_responsavel === 1 && meus.includes(o.aluno_id);
+  }
+  if (anexo.entidade === 'mensagem') {
+    return !!db.prepare(
+      'SELECT 1 FROM mensagem_destinatarios WHERE mensagem_id = ? AND responsavel_id = ?'
+    ).get(anexo.entidade_id, usuario.responsavel_id);
   }
   return false;
 }

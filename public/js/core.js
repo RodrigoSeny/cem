@@ -481,6 +481,16 @@ const Anexos = {
 
   excluir(id) { return Api.excluir('/api/anexos/' + id); },
 
+  /** Baixa o arquivo e devolve uma URL local (blob) — usado pra prévia de imagem. */
+  async obterUrl(id) {
+    const resp = await fetch(`/api/anexos/${id}/arquivo`, {
+      headers: { Authorization: 'Bearer ' + Sessao.token() },
+    });
+    if (!resp.ok) throw new Error('Não foi possível carregar o arquivo.');
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
+  },
+
   /** Abre o arquivo numa nova aba (a rota exige token, então baixamos primeiro). */
   async abrir(id, nome) {
     try {

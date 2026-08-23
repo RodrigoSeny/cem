@@ -259,7 +259,7 @@ router.get('/mensagens', rota((req, res) => {
   const u = req.usuario;
   if (u.tipo !== 'responsavel') return res.status(403).json({ error: 'Caixa de mensagens do responsável.' });
 
-  res.json(db.prepare(`
+  const lista = db.prepare(`
     SELECT d.id AS destinatario_id, d.lido_em, d.ciente_em, d.aluno_id,
            m.id, m.titulo, m.conteudo, m.tipo, m.exige_ciencia, m.criado_em, m.criado_nome,
            a.nome AS aluno_nome
@@ -267,7 +267,14 @@ router.get('/mensagens', rota((req, res) => {
       JOIN mensagens m ON m.id = d.mensagem_id
       LEFT JOIN alunos a ON a.id = d.aluno_id
      WHERE d.responsavel_id = ?
-     ORDER BY m.id DESC LIMIT 200`).all(u.responsavel_id));
+     ORDER BY m.id DESC LIMIT 200`).all(u.responsavel_id);
+
+  for (const m of lista) {
+    m.anexos = db.prepare(`
+      SELECT id, categoria, nome_original, mime FROM anexos
+       WHERE entidade = 'mensagem' AND entidade_id = ?`).all(m.id);
+  }
+  res.json(lista);
 }));
 
 // ── GET /api/portal/mensagens/nao-lidas — badge do app ────────

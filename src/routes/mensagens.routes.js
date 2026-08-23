@@ -60,7 +60,8 @@ router.get('/', rota((req, res) => {
            a.nome AS aluno_nome,
            (SELECT COUNT(*) FROM mensagem_destinatarios d WHERE d.mensagem_id = m.id) AS total,
            (SELECT COUNT(*) FROM mensagem_destinatarios d WHERE d.mensagem_id = m.id AND d.lido_em IS NOT NULL) AS lidos,
-           (SELECT COUNT(*) FROM mensagem_destinatarios d WHERE d.mensagem_id = m.id AND d.ciente_em IS NOT NULL) AS cientes
+           (SELECT COUNT(*) FROM mensagem_destinatarios d WHERE d.mensagem_id = m.id AND d.ciente_em IS NOT NULL) AS cientes,
+           (SELECT COUNT(*) FROM anexos an WHERE an.entidade = 'mensagem' AND an.entidade_id = m.id) AS qtd_anexos
       FROM mensagens m
       LEFT JOIN turmas t ON t.id = m.turma_id
       LEFT JOIN alunos a ON a.id = m.aluno_id
@@ -78,6 +79,11 @@ router.get('/:id', rota((req, res) => {
       LEFT JOIN alunos a ON a.id = m.aluno_id
      WHERE m.id = ?`).get(id);
   if (!m) return res.status(404).json({ error: 'Mensagem não encontrada.' });
+
+  m.anexos = db.prepare(`
+    SELECT id, categoria, descricao, nome_original, mime, tamanho, criado_em
+      FROM anexos WHERE entidade = 'mensagem' AND entidade_id = ?
+     ORDER BY criado_em DESC`).all(id);
 
   m.destinatarios = db.prepare(`
     SELECT d.id, d.lido_em, d.ciente_em,
