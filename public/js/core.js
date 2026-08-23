@@ -29,21 +29,24 @@ const Sessao = {
     const destino = this.telaLogin();
     sessionStorage.removeItem('cem_token');
     sessionStorage.removeItem('cem_usuario');
-    window.location.href = destino;
+    // replace(), não href — sem isso, cada redirecionamento pro login empilha
+    // uma entrada extra no histórico, e o botão voltar do celular precisa de
+    // vários toques pra esvaziar a pilha até realmente sair do app.
+    window.location.replace(destino);
   },
 
   /** Exige sessão válida do tipo indicado ('funcionario' | 'responsavel' | null = qualquer). */
   exigir(tipo) {
     const t = this.token();
     const u = this.usuario();
-    if (!t || !u) { window.location.href = this.telaLogin(); return null; }
+    if (!t || !u) { window.location.replace(this.telaLogin()); return null; }
     try {
       const p = JSON.parse(atob(t.split('.')[1]));
       if (p.exp * 1000 <= Date.now()) { this.encerrar(); return null; }
     } catch { this.encerrar(); return null; }
 
     if (tipo && u.tipo !== tipo) {
-      window.location.href = u.tipo === 'responsavel' ? '/app' : '/sistema';
+      window.location.replace(u.tipo === 'responsavel' ? '/app' : '/sistema');
       return null;
     }
     return u;

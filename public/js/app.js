@@ -348,8 +348,6 @@ async function iniciar() {
   document.getElementById('navNome').textContent = USUARIO.nome;
   document.getElementById('navPerfil').textContent = USUARIO.perfil_nome || '—';
   document.getElementById('navAvatar').textContent = iniciais(USUARIO.nome);
-  document.getElementById('atalhoNome').textContent = nomeCurto(USUARIO.nome);
-  document.getElementById('atalhoAvatar').textContent = iniciais(USUARIO.nome);
 
   // Marca da escola
   try {

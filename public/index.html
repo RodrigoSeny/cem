@@ -16,12 +16,6 @@
 
 <!-- ═══════════ GUIA DE ATALHOS (abas fixáveis) ═══════════ -->
 <div class="faixa-atalhos" id="faixaAtalhos">
-  <div class="atalhos-user">
-    <span class="avatar" id="atalhoAvatar">--</span>
-    <span class="nome"  id="atalhoNome">—</span>
-    <button class="btn-ico" onclick="alternarTema()" title="Alternar tema claro/escuro">🌗</button>
-    <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">⏻</button>
-  </div>
   <div class="atalhos-tabs" id="atalhosTabs"></div>
   <button class="btn-ico" id="btnAddAtalho" onclick="Atalhos.abrirMenu(event)" title="Adicionar atalho" style="font-size:18px;font-weight:700">+</button>
 </div>
@@ -117,12 +111,18 @@
 
     <div class="nav-footer">
       <div class="nav-user">
-        <div class="nav-user-avatar" id="navAvatar">--</div>
-        <div style="flex:1;min-width:0">
-          <div class="nav-user-nome" id="navNome">—</div>
-          <div class="nav-user-perfil" id="navPerfil">—</div>
+        <div class="nav-user-topo">
+          <div class="nav-user-avatar" id="navAvatar">--</div>
+          <div style="flex:1;min-width:0">
+            <div class="nav-user-nome" id="navNome">—</div>
+            <div class="nav-user-perfil" id="navPerfil">—</div>
+          </div>
         </div>
-        <button class="btn-ico" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
+        <div class="nav-user-acoes">
+          <button class="btn-ico" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
+          <button class="btn-ico" onclick="alternarTema()" title="Alternar tema claro/escuro">🌗</button>
+          <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">⏻</button>
+        </div>
       </div>
     </div>
   </nav>
