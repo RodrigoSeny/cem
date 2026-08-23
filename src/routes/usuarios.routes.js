@@ -12,6 +12,10 @@ const perfis = express.Router();
 
 const CONFLITOS = { 'usuarios.login': 'Já existe um usuário com este login.' };
 
+// Prazo pra usar uma senha provisória (enviada no convite do app) antes de expirar.
+const VALIDADE_PROVISORIA_DIAS = 7;
+const validadeProvisoria = () => agora(VALIDADE_PROVISORIA_DIAS * 86400000);
+
 /** Só o Master enxerga e manipula o perfil Master e quem o usa. */
 const soMaster = (req, res) =>
   res.status(403).json({ error: 'O perfil Master é gerenciado apenas por um usuário Master.' });
@@ -24,7 +28,7 @@ usuarios.get('/', rota((req, res) => {
 
   res.json(db.prepare(`
     SELECT u.id, u.nome, u.login, u.email, u.tipo, u.ativo, u.ultimo_login,
-           u.precisa_trocar_senha, u.perfil_id, p.nome AS perfil_nome,
+           u.precisa_trocar_senha, u.senha_valida_ate, u.perfil_id, p.nome AS perfil_nome,
            u.funcionario_id, f.nome AS funcionario_nome,
            u.responsavel_id, r.nome AS responsavel_nome
       FROM usuarios u
@@ -52,20 +56,23 @@ usuarios.post('/', rota((req, res) => {
     return res.status(400).json({ error: 'Selecione o responsável vinculado a este acesso.' });
   }
 
+  const precisaTrocar = req.body.precisa_trocar_senha === false ? 0 : 1;
+  const senhaValidaAte = precisaTrocar ? validadeProvisoria() : null;
+
   const info = db.prepare(`
-    INSERT INTO usuarios (nome, login, email, senha_hash, tipo, perfil_id, funcionario_id, responsavel_id, ativo, precisa_trocar_senha, criado_em)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
+    INSERT INTO usuarios (nome, login, email, senha_hash, tipo, perfil_id, funcionario_id, responsavel_id, ativo, precisa_trocar_senha, senha_valida_ate, criado_em)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`)
     .run(
       nome, login, req.body.email || null, bcrypt.hashSync(senha, 10), tipo,
       tipo === 'funcionario' ? (req.body.perfil_id || null) : 'PERFIL-RESPONSAVEL',
       req.body.funcionario_id ? Number(req.body.funcionario_id) : null,
       req.body.responsavel_id ? Number(req.body.responsavel_id) : null,
-      req.body.precisa_trocar_senha === false ? 0 : 1,
+      precisaTrocar, senhaValidaAte,
       agora()
     );
 
   log(req, 'criar', 'usuarios', info.lastInsertRowid, `${login} (${tipo})`);
-  res.status(201).json({ id: info.lastInsertRowid });
+  res.status(201).json({ id: info.lastInsertRowid, senha_valida_ate: senhaValidaAte });
 }, CONFLITOS));
 
 usuarios.put('/:id', rota((req, res) => {
@@ -119,10 +126,11 @@ usuarios.post('/:id/senha', rota((req, res) => {
 
   // Redefinir a senha de um Master daria acesso total a quem não é Master
   if (alvo.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
-  db.prepare('UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 1, tentativas = 0, bloqueado_ate = NULL, atualizado_em = ? WHERE id = ?')
-    .run(bcrypt.hashSync(senha, 10), agora(), id);
+  const senhaValidaAte = validadeProvisoria();
+  db.prepare('UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 1, senha_valida_ate = ?, tentativas = 0, bloqueado_ate = NULL, atualizado_em = ? WHERE id = ?')
+    .run(bcrypt.hashSync(senha, 10), senhaValidaAte, agora(), id);
   log(req, 'redefinir-senha', 'usuarios', id, null);
-  res.json({ ok: true });
+  res.json({ ok: true, senha_valida_ate: senhaValidaAte });
 }));
 
 usuarios.delete('/:id', rota((req, res) => {

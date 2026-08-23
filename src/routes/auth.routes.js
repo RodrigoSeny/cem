@@ -59,7 +59,7 @@ router.post('/login', rota((req, res) => {
     const tentativas = (u.tentativas || 0) + 1;
     let bloqueio = null;
     if (tentativas >= MAX_TENTATIVAS) {
-      bloqueio = new Date(Date.now() + BLOQUEIO_MIN * 60000).toLocaleString('sv-SE').replace('T', ' ');
+      bloqueio = agora(BLOQUEIO_MIN * 60000);
     }
     db.prepare('UPDATE usuarios SET tentativas = ?, bloqueado_ate = ? WHERE id = ?')
       .run(bloqueio ? 0 : tentativas, bloqueio, u.id);
@@ -67,6 +67,12 @@ router.post('/login', rota((req, res) => {
     if (bloqueio) return res.status(403).json({ error: `Muitas tentativas. Acesso bloqueado por ${BLOQUEIO_MIN} minutos.` });
     const restam = MAX_TENTATIVAS - tentativas;
     return res.status(401).json({ error: `Login ou senha incorretos. (${restam} tentativa${restam === 1 ? '' : 's'} restante${restam === 1 ? '' : 's'})` });
+  }
+
+  // Senha provisória (enviada no convite do app) tem prazo — passado ele, o
+  // acesso é bloqueado até a secretaria enviar uma nova senha provisória.
+  if (u.precisa_trocar_senha && u.senha_valida_ate && u.senha_valida_ate < agora()) {
+    return res.status(403).json({ error: 'Sua senha provisória expirou. Peça um novo acesso à secretaria.' });
   }
 
   db.prepare('UPDATE usuarios SET tentativas = 0, bloqueado_ate = NULL, ultimo_login = ? WHERE id = ?')
@@ -102,7 +108,7 @@ router.post('/trocar-senha', rota((req, res) => {
     return res.status(401).json({ error: 'Senha atual incorreta.' });
   }
 
-  db.prepare('UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 0, atualizado_em = ? WHERE id = ?')
+  db.prepare('UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 0, senha_valida_ate = NULL, atualizado_em = ? WHERE id = ?')
     .run(bcrypt.hashSync(nova, 10), agora(), u.id);
 
   log(req, 'trocar-senha', 'usuarios', u.id, null);

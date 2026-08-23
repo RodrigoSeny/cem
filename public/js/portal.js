@@ -1054,7 +1054,7 @@ const Portal = {
       <div class="titulo-secao">Sessão</div>
       <div class="cartao toque" onclick="Sessao.encerrar()">
         <div class="aluno-linha">
-          <div class="aluno-av" style="background:rgba(255,94,94,.15);color:var(--red)">🚪</div>
+          <div class="aluno-av" style="background:rgba(255,94,94,.15);color:var(--red)">⏻</div>
           <div style="flex:1"><div class="aluno-nome">Sair da conta</div>
             <div class="aluno-info">Encerra a sessão neste aparelho</div></div>
         </div>

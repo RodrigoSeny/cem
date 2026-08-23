@@ -41,7 +41,9 @@ const Usuarios = {
         <td>${u.ativo
               ? '<span class="badge badge-green">ativo</span>'
               : '<span class="badge badge-cinza">inativo</span>'}
-            ${u.precisa_trocar_senha ? '<span class="badge badge-gold" title="Senha provisória">🔑</span>' : ''}</td>
+            ${u.precisa_trocar_senha
+              ? `<span class="badge badge-gold" title="Senha provisória${u.senha_valida_ate ? ' · válida até ' + dataHoraBR(u.senha_valida_ate) : ''}">🔑</span>`
+              : ''}</td>
         <td class="acoes">
           <button class="btn-ico" onclick="Usuarios.redefinirSenha(${u.id})" title="Redefinir senha">🔑</button>
           <button class="btn-ico" onclick="Usuarios.abrirEdicao(${u.id})" title="Editar">✏️</button>
@@ -163,13 +165,20 @@ const Usuarios = {
       if (this.editandoId) {
         await Api.put('/api/usuarios/' + this.editandoId, dados);
         toast('Acesso atualizado.');
+        fecharModal('modalUsuario');
       } else {
         dados.senha = document.getElementById('usuarioSenha').value;
         if (!dados.senha || dados.senha.length < 6) return toastErro('A senha provisória precisa ter ao menos 6 caracteres.');
-        await Api.post('/api/usuarios', dados);
+        const r = await Api.post('/api/usuarios', dados);
         toast(`Acesso criado. Login: ${dados.login} · senha: ${dados.senha}`, 'sucesso', 12);
+        fecharModal('modalUsuario');
+
+        if (dados.tipo === 'responsavel' && dados.responsavel_id) {
+          Responsaveis.enviarInstrucoesApp(Number(dados.responsavel_id), {
+            login: dados.login, senha: dados.senha, validaAte: r.senha_valida_ate,
+          });
+        }
       }
-      fecharModal('modalUsuario');
       this.carregar();
     } catch (e) { toastErro(e.message); }
   },
@@ -184,8 +193,14 @@ const Usuarios = {
     if (!ok) return;
 
     try {
-      await Api.post(`/api/usuarios/${id}/senha`, { senha: nova });
+      const r = await Api.post(`/api/usuarios/${id}/senha`, { senha: nova });
       toast(`Nova senha de ${u.login}: ${nova}`, 'sucesso', 14);
+
+      if (u.tipo === 'responsavel' && u.responsavel_id) {
+        Responsaveis.enviarInstrucoesApp(u.responsavel_id, {
+          login: u.login, senha: nova, validaAte: r.senha_valida_ate,
+        });
+      }
       this.carregar();
     } catch (e) { toastErro(e.message); }
   },

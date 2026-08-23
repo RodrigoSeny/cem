@@ -291,17 +291,28 @@ const Responsaveis = {
     setTimeout(() => Usuarios.abrirNovo({ tipo: 'responsavel', responsavel_id: id }), 300);
   },
 
-  /** Manda pelo WhatsApp o link do app e o passo a passo de instalação. */
-  enviarInstrucoesApp(id) {
-    const r = this.lista.find(x => x.id === id);
+  /** Manda pelo WhatsApp o link do app, o passo a passo de instalação e,
+   *  quando informado, o login/senha provisória recém-gerados do acesso. */
+  enviarInstrucoesApp(id, credenciais = null) {
+    // Cai pro Cache (sempre carregado) se a tela de Responsáveis ainda não
+    // tiver sido aberta nesta sessão — ex.: acesso criado direto em Usuários.
+    const r = this.lista.find(x => x.id === id) || Cache.responsaveis.find(x => x.id === id);
     if (!r) return;
 
     const contato = r.whatsapp || r.telefone;
     if (!contato) return toast('Este responsável não tem telefone/WhatsApp cadastrado.', 'aviso');
 
+    const blocoAcesso = credenciais
+      ? `🔐 *Seu acesso:*\n` +
+        `Login: *${credenciais.login}*\n` +
+        `Senha provisória: *${credenciais.senha}*\n` +
+        `⚠️ Essa senha é válida até *${dataBR(credenciais.validaAte)}*. No primeiro acesso, você vai criar sua senha definitiva.\n\n`
+      : '';
+
     const link = `${location.origin}/app-login`;
     const texto = `Olá, ${nomeCurto(r.nome)}! Aqui é da secretaria do Centro Educacional Milezi. 👋\n\n` +
       `Agora você pode acompanhar tudo pelo nosso aplicativo: mensalidades, ocorrências, comunicados e mais.\n\n` +
+      blocoAcesso +
       `📲 *Acesse por aqui:* ${link}\n\n` +
       `*Como instalar no celular:*\n\n` +
       `🤖 *Android (Chrome):* abra o link acima, toque nos 3 pontinhos (⋮) no canto superior direito e escolha "Instalar aplicativo" ou "Adicionar à tela inicial".\n\n` +

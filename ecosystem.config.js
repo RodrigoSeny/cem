@@ -14,6 +14,10 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: '3300',
+      // Redundante com o TZ do .env: este arquivo vai pro git (o .env da VPS
+      // não vai), então garante o fuso certo mesmo se o .env do servidor
+      // estiver desatualizado ou sem essa linha.
+      TZ: 'America/Sao_Paulo',
     },
     error_file: '/var/log/cem/err.log',
     out_file: '/var/log/cem/out.log',

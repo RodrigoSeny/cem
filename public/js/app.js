@@ -13,6 +13,8 @@ const PAGINAS_APP = [
   { id: 'responsaveis',   rotulo: 'Responsáveis',      ico: '👨‍👩‍👧', permissao: 'responsaveis' },
   { id: 'ocorrencias',    rotulo: 'Ocorrências',       ico: '📌', permissao: 'ocorrencias' },
   { id: 'mensagens',      rotulo: 'Mensagens',         ico: '✉️', permissao: 'mensagens' },
+  { id: 'ped-listas',     rotulo: 'Listas de Material', ico: '🎒', permissao: 'ped-listas' },
+  { id: 'ped-checklist',  rotulo: 'Checklist por Aluno', ico: '✅', permissao: 'ped-checklist' },
   { id: 'funcionarios',   rotulo: 'Funcionários',      ico: '👔', permissao: 'funcionarios' },
   { id: 'fin-painel',       rotulo: 'Painel Financeiro',    ico: '📊', permissao: 'fin-painel' },
   { id: 'fin-cadastros',    rotulo: 'Cadastros Financeiro', ico: '🗂️', permissao: 'fin-cadastros' },

@@ -231,6 +231,50 @@ CREATE TABLE IF NOT EXISTS aluno_autorizados_retirada (
 );
 CREATE INDEX IF NOT EXISTS idx_aut_retirada_aluno ON aluno_autorizados_retirada (aluno_id);
 
+-- ── Pedagógico: listas de material (coletiva por turma ou geral) ──
+CREATE TABLE IF NOT EXISTS material_listas (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome                TEXT NOT NULL,
+  tipo                TEXT NOT NULL DEFAULT 'coletivo' CHECK (tipo IN ('coletivo','individual')),
+  escopo              TEXT NOT NULL DEFAULT 'turma' CHECK (escopo IN ('geral','turma')),
+  ano_letivo          INTEGER,
+  valor_alternativo   REAL,
+  observacoes         TEXT,
+  ativa               INTEGER NOT NULL DEFAULT 1,
+  criado_em           TEXT DEFAULT (datetime('now','localtime')),
+  atualizado_em       TEXT
+);
+
+CREATE TABLE IF NOT EXISTS material_lista_itens (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  lista_id    INTEGER NOT NULL REFERENCES material_listas(id) ON DELETE CASCADE,
+  ordem       INTEGER NOT NULL DEFAULT 0,
+  quantidade  INTEGER NOT NULL DEFAULT 1,
+  descricao   TEXT NOT NULL,
+  observacao  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_material_itens_lista ON material_lista_itens (lista_id);
+
+-- Turmas às quais uma lista de escopo 'turma' se aplica (N:N).
+CREATE TABLE IF NOT EXISTS material_lista_turmas (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  lista_id  INTEGER NOT NULL REFERENCES material_listas(id) ON DELETE CASCADE,
+  turma_id  INTEGER NOT NULL REFERENCES turmas(id) ON DELETE CASCADE,
+  UNIQUE (lista_id, turma_id)
+);
+
+-- Checklist: estado de entrega de cada item, por aluno.
+CREATE TABLE IF NOT EXISTS material_aluno_itens (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  aluno_id     INTEGER NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  item_id      INTEGER NOT NULL REFERENCES material_lista_itens(id) ON DELETE CASCADE,
+  enviado      INTEGER NOT NULL DEFAULT 0,
+  enviado_em   TEXT,
+  marcado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  UNIQUE (aluno_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_material_aluno_itens_aluno ON material_aluno_itens (aluno_id);
+
 -- ── Usuários do sistema (funcionários) e do portal (responsáveis) ──
 CREATE TABLE IF NOT EXISTS usuarios (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -245,6 +289,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   responsavel_id        INTEGER REFERENCES responsaveis(id) ON DELETE SET NULL,
   ativo                 INTEGER NOT NULL DEFAULT 1,
   precisa_trocar_senha  INTEGER NOT NULL DEFAULT 0,
+  senha_valida_ate      TEXT,
   ultimo_login          TEXT,
   tentativas            INTEGER NOT NULL DEFAULT 0,
   bloqueado_ate         TEXT,
@@ -796,6 +841,12 @@ function migrar() {
     `);
     console.log('↗️  contratos_financeiros.desconto_irmao_percentual/tipo_aluno criadas.');
   }
+
+  // 8. Validade da senha provisória (usada ao enviar login/senha no convite do app).
+  if (!colunas('usuarios').includes('senha_valida_ate')) {
+    db.exec(`ALTER TABLE usuarios ADD COLUMN senha_valida_ate TEXT;`);
+    console.log('↗️  usuarios.senha_valida_ate criada.');
+  }
 }
 
 migrar();
@@ -804,9 +855,15 @@ migrar();
 // HELPERS
 // ────────────────────────────────────────────────────────────────
 
-/** Data/hora local no formato do banco (YYYY-MM-DD HH:MM:SS). */
-function agora() {
-  return new Date().toLocaleString('sv-SE').replace('T', ' ');
+/** Data/hora de São Paulo no formato do banco (YYYY-MM-DD HH:MM:SS).
+ *  Usa timeZone explícito (em vez de depender do TZ do processo/SO) porque
+ *  a VPS às vezes roda com o relógio em UTC e o .env do servidor — que não
+ *  vai no git — pode ficar sem a variável TZ; assim o horário nunca some.
+ *  `deltaMs` desloca o instante (ex.: bloqueio de login daqui a N minutos). */
+function agora(deltaMs = 0) {
+  return new Date(Date.now() + deltaMs)
+    .toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+    .replace('T', ' ');
 }
 
 /** Registra uma ação na auditoria. Nunca derruba a requisição. */

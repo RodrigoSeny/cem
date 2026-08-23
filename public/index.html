@@ -20,7 +20,7 @@
     <span class="avatar" id="atalhoAvatar">--</span>
     <span class="nome"  id="atalhoNome">—</span>
     <button class="btn-ico" onclick="alternarTema()" title="Alternar tema claro/escuro">🌗</button>
-    <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">🚪</button>
+    <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">⏻</button>
   </div>
   <div class="atalhos-tabs" id="atalhosTabs"></div>
   <button class="btn-ico" id="btnAddAtalho" onclick="Atalhos.abrirMenu(event)" title="Adicionar atalho" style="font-size:18px;font-weight:700">+</button>
@@ -67,6 +67,13 @@
       <div class="nav-item" data-pagina="responsaveis"><span class="ico">👨‍👩‍👧</span> Responsáveis</div>
       <div class="nav-item" data-pagina="ocorrencias"><span class="ico">📌</span> Ocorrências</div>
       <div class="nav-item" data-pagina="mensagens"><span class="ico">✉️</span> Mensagens</div>
+
+      <div class="nav-section">Pedagógico</div>
+      <div class="nav-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">🎒</span> Materiais</div>
+      <div class="nav-submenu">
+        <div class="nav-submenu-item" data-pagina="ped-listas"><span class="ico">📋</span> Listas de Material</div>
+        <div class="nav-submenu-item" data-pagina="ped-checklist"><span class="ico">✅</span> Checklist por Aluno</div>
+      </div>
 
       <div class="nav-section">Administrativo</div>
       <div class="nav-item" data-pagina="funcionarios"><span class="ico">👔</span> Funcionários</div>
@@ -403,6 +410,58 @@
           </table>
         </div>
         <div class="tabela-rodape"><span id="msgTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── PEDAGÓGICO · LISTAS DE MATERIAL ─────────── -->
+    <section class="pagina" id="pagina-ped-listas">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Listas de Material</h1>
+          <p class="pagina-sub">Modelos de lista entregues na matrícula — geral ou por turma</p>
+        </div>
+        <div class="pagina-acoes">
+          <button class="btn btn-primary" onclick="Pedagogico.abrirLista()">＋ Nova lista</button>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr><th>Nome</th><th>Tipo</th><th>Escopo</th><th>Itens</th><th>Turmas</th><th>Status</th><th class="acoes">Ações</th></tr>
+            </thead>
+            <tbody id="pedListasCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="pedListasTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── PEDAGÓGICO · CHECKLIST POR ALUNO ─────────── -->
+    <section class="pagina" id="pagina-ped-checklist">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Checklist por Aluno</h1>
+          <p class="pagina-sub">Marque o material já entregue por cada aluno</p>
+        </div>
+      </div>
+
+      <div class="filtros" style="margin-bottom:12px">
+        <div class="campo">
+          <label>Turma</label>
+          <select class="form-select" id="pedChecklistTurma" style="min-width:220px" onchange="Pedagogico.carregarResumoTurma()"></select>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead><tr><th>Aluno</th><th>Matrícula</th><th style="width:260px">Progresso</th><th class="acoes">Ações</th></tr></thead>
+            <tbody id="pedResumoCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="pedResumoTotal">—</span></div>
       </div>
     </section>
 
@@ -1742,6 +1801,85 @@
   </div>
 </div>
 
+<!-- Lista de material (Pedagógico) -->
+<div class="modal-overlay" id="modalListaMaterial">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div><h3 id="modalListaMaterialTitulo">Nova lista de material</h3><div class="sub">Modelo entregue na matrícula</div></div>
+      <button class="btn-ico" onclick="fecharModal('modalListaMaterial')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" id="formListaMaterial">
+        <div class="form-group col-2"><label class="form-label">Nome <span class="req">*</span></label><input class="form-input" data-campo="nome"></div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" data-campo="tipo">
+            <option value="coletivo">Coletivo</option>
+            <option value="individual">Individual</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Escopo</label>
+          <select class="form-select" data-campo="escopo" onchange="Pedagogico.mudarEscopoLista()">
+            <option value="turma">Por turma</option>
+            <option value="geral">Geral (todas as turmas)</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Ano letivo</label><input type="number" class="form-input" data-campo="ano_letivo"></div>
+        <div class="form-group"><label class="form-label">Valor alternativo (R$)</label><input class="form-input" data-campo="valor_alternativo" placeholder="Ex.: 550,00"></div>
+        <div class="form-group col-2"><label class="form-label">Observações</label><input class="form-input" data-campo="observacoes" placeholder="Ex.: identificar todo material com nome e turma"></div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:22px">
+            <input type="checkbox" data-campo="ativa"> Lista ativa
+          </label>
+        </div>
+        <div class="form-group col-4">
+          <button class="btn btn-primary" onclick="Pedagogico.salvarLista()" id="btnSalvarListaMaterial">💾 Salvar lista</button>
+          <button class="btn btn-ghost" onclick="Pedagogico.duplicarLista()" id="btnDuplicarListaMaterial" style="display:none">📄 Duplicar</button>
+        </div>
+      </div>
+
+      <div id="listaTurmasBox" class="card card-p oculto" style="background:var(--surface);margin-top:14px">
+        <div class="secao-titulo" style="margin-top:0">Turmas vinculadas</div>
+        <div class="form-hint mb-2">A lista se aplica a todo aluno matriculado em qualquer uma destas turmas.</div>
+        <div id="listaTurmasChecks" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="Pedagogico.salvarTurmasLista()">💾 Salvar turmas</button>
+      </div>
+
+      <div id="listaItensBox" class="card card-p oculto" style="background:var(--surface);margin-top:14px">
+        <div class="secao-titulo" style="margin-top:0">Itens da lista</div>
+        <div class="tabela-wrap">
+          <table class="tabela">
+            <thead><tr><th style="width:90px">Qtd.</th><th>Descrição</th><th>Observação</th><th class="acoes"></th></tr></thead>
+            <tbody id="listaItensCorpo"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="Pedagogico.adicionarItemLista()">＋ Adicionar item</button>
+          <button class="btn btn-primary btn-sm" onclick="Pedagogico.salvarItensLista()">💾 Salvar itens</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="fecharModal('modalListaMaterial')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Checklist de material do aluno (Pedagógico) -->
+<div class="modal-overlay" id="modalChecklistAluno">
+  <div class="modal md">
+    <div class="modal-head">
+      <div><h3 id="modalChecklistTitulo">Checklist de material</h3><div class="sub" id="modalChecklistSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalChecklistAluno')">✕</button>
+    </div>
+    <div class="modal-body" id="checklistAlunoCorpo"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="Pedagogico.imprimirListaPais()">🖨️ Lista para os pais</button>
+      <button class="btn btn-ghost" onclick="Pedagogico.imprimirChecklist()">🖨️ Checklist (controle interno)</button>
+      <button class="btn btn-primary" onclick="fecharModal('modalChecklistAluno')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Cobrança avulsa -->
 <div class="modal-overlay" id="modalCobranca">
   <div class="modal">
@@ -2016,6 +2154,7 @@
 <script src="/js/relatorios.js"></script>
 <script src="/js/ocorrencias.js"></script>
 <script src="/js/mensagens.js"></script>
+<script src="/js/pedagogico.js"></script>
 <!-- Modal — Conta Bancária -->
 <div class="modal-overlay" id="modalContaBancaria">
   <div class="modal">

@@ -39,6 +39,8 @@ const PAGINAS = [
   { id: 'turmas',        nome: 'Turmas',               grupo: 'Secretaria' },
   { id: 'ocorrencias',   nome: 'Ocorrências',          grupo: 'Secretaria' },
   { id: 'mensagens',     nome: 'Mensagens',            grupo: 'Secretaria' },
+  { id: 'ped-listas',    nome: 'Pedagógico · Listas de Material',  grupo: 'Pedagógico' },
+  { id: 'ped-checklist', nome: 'Pedagógico · Checklist por Aluno', grupo: 'Pedagógico' },
   { id: 'funcionarios',  nome: 'Funcionários',         grupo: 'Administrativo' },
   { id: 'fin-painel',       nome: 'Financeiro · Painel',              grupo: 'Financeiro' },
   { id: 'fin-cadastros',    nome: 'Financeiro · Cadastros',           grupo: 'Financeiro' },
@@ -68,6 +70,9 @@ const ROTA_PAGINAS = {
   '/api/turmas':        ['turmas', 'alunos', 'relatorios'],
   '/api/ocorrencias':   ['ocorrencias', 'alunos'],
   '/api/mensagens':     ['mensagens'],
+
+  '/api/material/listas': ['ped-listas'],
+  '/api/material':        ['ped-listas', 'ped-checklist'],
 
   // Financeiro: os prefixos específicos vêm ANTES do geral, porque
   // paginasDaRota devolve a primeira correspondência encontrada.

@@ -55,6 +55,7 @@ app.use('/api/portal',        require('./src/routes/portal.routes'));
 app.use('/api/anexos',        require('./src/routes/anexos.routes').router);
 app.use('/api/ocorrencias',   require('./src/routes/ocorrencias.routes').router);
 app.use('/api/mensagens',     require('./src/routes/mensagens.routes').router);
+app.use('/api/material',      require('./src/routes/material.routes'));
 // As rotas específicas do financeiro vêm antes do router geral,
 // senão '/planos' e companhia capturariam '/cobrancas', '/despesas'…
 const custos = require('./src/routes/custos.routes');
