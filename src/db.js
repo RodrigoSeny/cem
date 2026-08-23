@@ -252,6 +252,19 @@ CREATE TABLE IF NOT EXISTS usuarios (
   atualizado_em         TEXT
 );
 
+-- ── Inscrições de notificação push (Web Push) ──────────────────
+-- Um usuário pode ter mais de um aparelho inscrito (celular, tablet...).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  endpoint    TEXT NOT NULL UNIQUE,
+  p256dh      TEXT NOT NULL,
+  auth        TEXT NOT NULL,
+  user_agent  TEXT,
+  criado_em   TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_push_usuario ON push_subscriptions (usuario_id);
+
 -- ── Auditoria ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS logs (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,

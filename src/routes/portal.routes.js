@@ -10,6 +10,7 @@ const express = require('express');
 const { db, log, agora } = require('../db');
 const { rota, idade } = require('../util');
 const { temPagina } = require('../auth');
+const Push = require('../push');
 
 const router = express.Router();
 
@@ -412,6 +413,41 @@ router.get('/alunos/:id/financeiro', rota((req, res) => {
       vencido: Number(abertas.filter(m => m.situacao === 'vencida').reduce((s, m) => s + m.saldo, 0).toFixed(2)),
     },
   });
+}));
+
+// ══════════════════════ NOTIFICAÇÕES PUSH ════════════════════
+
+// ── GET /api/portal/push/public-key ───────────────────────────
+router.get('/push/public-key', rota((req, res) => {
+  res.json({ publicKey: Push.PUBLIC_KEY, ativo: Push.ATIVO });
+}));
+
+// ── POST /api/portal/push/subscribe ───────────────────────────
+router.post('/push/subscribe', rota((req, res) => {
+  const { endpoint, keys } = req.body || {};
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    return res.status(400).json({ error: 'Inscrição de notificação inválida.' });
+  }
+
+  db.prepare(`
+    INSERT INTO push_subscriptions (usuario_id, endpoint, p256dh, auth, user_agent, criado_em)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(endpoint) DO UPDATE SET usuario_id = excluded.usuario_id,
+      p256dh = excluded.p256dh, auth = excluded.auth, user_agent = excluded.user_agent`
+  ).run(req.usuario.id, endpoint, keys.p256dh, keys.auth, req.headers['user-agent'] || null, agora());
+
+  res.status(201).json({ ok: true });
+}));
+
+// ── POST /api/portal/push/unsubscribe ─────────────────────────
+router.post('/push/unsubscribe', rota((req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'Informe o endpoint da inscrição.' });
+
+  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND usuario_id = ?')
+    .run(endpoint, req.usuario.id);
+
+  res.json({ ok: true });
 }));
 
 module.exports = router;

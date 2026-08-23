@@ -55,3 +55,38 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(e.request))
   );
 });
+
+// ── Notificações push ─────────────────────────────────────────
+// Chega mesmo com o app fechado (é o próprio navegador que acorda o
+// service worker). O corpo vem em JSON: { titulo, corpo, tela }.
+self.addEventListener('push', e => {
+  let dados = {};
+  try { dados = e.data ? e.data.json() : {}; } catch { dados = {}; }
+
+  const titulo = dados.titulo || 'Centro Educacional Milezi';
+  const opcoes = {
+    body: dados.corpo || '',
+    icon: '/img/icone-cem.svg',
+    badge: '/img/icone-cem.svg',
+    data: { tela: dados.tela || 'inicio' },
+  };
+  e.waitUntil(self.registration.showNotification(titulo, opcoes));
+});
+
+// Toque na notificação: foca uma aba já aberta (avisando a tela pra ir) ou abre uma nova.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const tela = e.notification.data?.tela || 'inicio';
+
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(lista => {
+      for (const c of lista) {
+        if (c.url.includes('/app') && 'focus' in c) {
+          c.postMessage({ tipo: 'ir-tela', tela });
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow(`/app?tela=${tela}`);
+    })
+  );
+});

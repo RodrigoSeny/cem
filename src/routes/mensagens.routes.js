@@ -8,6 +8,7 @@
 const express = require('express');
 const { db, log, agora } = require('../db');
 const { bool01, rota } = require('../util');
+const Push = require('../push');
 
 const router = express.Router();
 
@@ -133,6 +134,13 @@ router.post('/', rota((req, res) => {
 
   const id = criar();
   log(req, 'criar', 'mensagens', id, `${titulo} → ${lista.length} destinatário(s)`);
+
+  Push.enviarParaResponsaveis(lista.map(d => d.responsavel_id), {
+    titulo: '✉️ Nova mensagem da escola',
+    corpo: titulo,
+    tela: 'mensagens',
+  }).catch(e => console.error('[push/mensagens]', e.message));
+
   res.status(201).json({ id, destinatarios: lista.length });
 }));
 

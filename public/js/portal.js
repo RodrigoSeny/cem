@@ -55,6 +55,20 @@ async function instalarApp() {
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+  // Toque numa notificação com o app já aberto: o sw manda a tela por aqui.
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.tipo === 'ir-tela' && e.data.tela) irTela(e.data.tela);
+  });
+}
+
+/** Converte a chave pública VAPID (base64url) para o formato exigido pelo Push API. */
+function urlBase64ParaUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const bruto = window.atob(base64);
+  const saida = new Uint8Array(bruto.length);
+  for (let i = 0; i < bruto.length; ++i) saida[i] = bruto.charCodeAt(i);
+  return saida;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -95,6 +109,10 @@ const Portal = {
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) this.atualizarSelo();
     });
+
+    // Veio de um toque em notificação (app fechado) → já abre na tela certa
+    const telaInicial = new URLSearchParams(location.search).get('tela');
+    if (telaInicial) irTela(telaInicial);
   },
 
   /** Alerta visual de mensagens não lidas na barra inferior. */
@@ -842,6 +860,18 @@ const Portal = {
         </span></div>
       </div>
 
+      <div class="titulo-secao">Notificações</div>
+      <div class="cartao toque" onclick="Portal.alternarNotificacoes()">
+        <div class="aluno-linha">
+          <div class="aluno-av">🔔</div>
+          <div style="flex:1;min-width:0">
+            <div class="aluno-nome">Notificações no aparelho</div>
+            <div class="aluno-info" id="statusNotificacoes">Verificando…</div>
+          </div>
+          <span class="seta">›</span>
+        </div>
+      </div>
+
       ${USUARIO.tipo === 'funcionario' ? `
       <div class="titulo-secao">Sistema</div>
       <div class="cartao toque" onclick="window.location.href='/sistema'">
@@ -861,6 +891,70 @@ const Portal = {
             <div class="aluno-info">Encerra a sessão neste aparelho</div></div>
         </div>
       </div>`;
+
+    this.statusNotificacoes();
+  },
+
+  // ── Notificações push ───────────────────────────────────────
+  async statusNotificacoes() {
+    const el = document.getElementById('statusNotificacoes');
+    if (!el) return;
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      el.textContent = 'Não suportado neste navegador.';
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      el.textContent = 'Bloqueadas — libere nas configurações do navegador.';
+      return;
+    }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const inscricao = await reg.pushManager.getSubscription();
+      el.textContent = inscricao
+        ? 'Ativadas — toque para desativar'
+        : 'Toque para avisar de novas mensagens e ocorrências';
+    } catch {
+      el.textContent = 'Toque para ativar';
+    }
+  },
+
+  async alternarNotificacoes() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return toastErro('Este navegador não suporta notificações.');
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    const atual = await reg.pushManager.getSubscription();
+
+    if (atual) {
+      try { await Api.post('/api/portal/push/unsubscribe', { endpoint: atual.endpoint }); } catch {}
+      await atual.unsubscribe();
+      toast('Notificações desativadas.');
+      return this.statusNotificacoes();
+    }
+
+    if (Notification.permission === 'denied') {
+      return toastErro('As notificações estão bloqueadas nas configurações do navegador.');
+    }
+
+    try {
+      const { publicKey, ativo } = await Api.get('/api/portal/push/public-key');
+      if (!ativo) return toastErro('A escola ainda não ativou as notificações.');
+
+      const permissao = await Notification.requestPermission();
+      if (permissao !== 'granted') return toastErro('Permissão de notificação negada.');
+
+      const nova = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ParaUint8Array(publicKey),
+      });
+      await Api.post('/api/portal/push/subscribe', nova.toJSON());
+      toast('Notificações ativadas!');
+    } catch (e) { toastErro(e.message); }
+
+    this.statusNotificacoes();
   },
 
   trocarSenha() {

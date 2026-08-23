@@ -8,6 +8,7 @@
 const express = require('express');
 const { db, log, agora } = require('../db');
 const { filtrarCampos, montarInsert, montarUpdate, bool01, rota } = require('../util');
+const Push = require('../push');
 
 const router = express.Router();
 
@@ -108,6 +109,17 @@ router.post('/', rota((req, res) => {
   const info = db.prepare(sql).run(...valores);
 
   log(req, 'criar', 'ocorrencias', info.lastInsertRowid, `${d.tipo}: ${d.titulo}`);
+
+  if (d.visivel_responsavel) {
+    const aluno = db.prepare('SELECT nome FROM alunos WHERE id = ?').get(d.aluno_id);
+    const vinculados = db.prepare('SELECT responsavel_id FROM aluno_responsaveis WHERE aluno_id = ?').all(d.aluno_id);
+    Push.enviarParaResponsaveis(vinculados.map(v => v.responsavel_id), {
+      titulo: '📌 Nova ocorrência',
+      corpo: `${aluno?.nome || 'Um aluno'}: ${d.titulo}`,
+      tela: 'ocorrencias',
+    }).catch(e => console.error('[push/ocorrencias]', e.message));
+  }
+
   res.status(201).json({ id: info.lastInsertRowid });
 }));
 

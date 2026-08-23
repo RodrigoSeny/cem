@@ -19,6 +19,14 @@ const hoje = () => new Date().toISOString().slice(0, 10);
 /** Valor devido de uma parcela. */
 const valorTotal = m => Number(m.valor_original) - Number(m.valor_desconto) + Number(m.valor_acrescimo);
 
+/** Desconto/bolsa: 0 (sem desconto) ou entre 0,01% e 99,99%. */
+function validarPercentual(valor, rotulo) {
+  if (valor < 0 || (valor > 0 && valor < 0.01) || valor > 99.99) {
+    return `${rotulo} deve ficar entre 0,01% e 99,99% (ou 0, para não aplicar).`;
+  }
+  return null;
+}
+
 // ══════════════════════ PLANOS ════════════════════════════════
 
 router.get('/planos', rota((req, res) => {
@@ -170,6 +178,12 @@ router.post('/contratos', rota((req, res) => {
   d.valor_mensalidade = d.valor_mensalidade != null ? Number(d.valor_mensalidade) : plano.valor_mensalidade;
   d.desconto_percentual = Number(d.desconto_percentual) || 0;
   d.bolsa_percentual = Number(d.bolsa_percentual) || 0;
+
+  const erroDesc = validarPercentual(d.desconto_percentual, 'O desconto');
+  if (erroDesc) return res.status(400).json({ error: erroDesc });
+  const erroBolsa = validarPercentual(d.bolsa_percentual, 'A bolsa');
+  if (erroBolsa) return res.status(400).json({ error: erroBolsa });
+
   d.dia_vencimento = Number(d.dia_vencimento) || plano.dia_vencimento;
   d.num_parcelas = Number(d.num_parcelas) || plano.num_parcelas;
   d.mes_inicio = Number(d.mes_inicio) || 1;
@@ -214,6 +228,15 @@ router.put('/contratos/:id', rota((req, res) => {
   for (const n of ['plano_id', 'responsavel_id', 'valor_mensalidade', 'desconto_percentual',
                    'bolsa_percentual', 'dia_vencimento', 'num_parcelas', 'mes_inicio']) {
     if (n in d) d[n] = d[n] === null ? null : Number(d[n]);
+  }
+
+  if ('desconto_percentual' in d) {
+    const erro = validarPercentual(d.desconto_percentual, 'O desconto');
+    if (erro) return res.status(400).json({ error: erro });
+  }
+  if ('bolsa_percentual' in d) {
+    const erro = validarPercentual(d.bolsa_percentual, 'A bolsa');
+    if (erro) return res.status(400).json({ error: erro });
   }
 
   if (d.responsavel_id) {

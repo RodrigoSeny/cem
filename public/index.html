@@ -1609,8 +1609,8 @@
         </div>
         <div class="form-group"><label class="form-label">Ano letivo</label><input type="number" class="form-input" data-campo="ano_letivo"></div>
         <div class="form-group"><label class="form-label">Mensalidade (R$)</label><input class="form-input" data-campo="valor_mensalidade" placeholder="0,00"></div>
-        <div class="form-group"><label class="form-label">Desconto (%)</label><input class="form-input" data-campo="desconto_percentual" value="0"></div>
-        <div class="form-group"><label class="form-label">Bolsa (%)</label><input class="form-input" data-campo="bolsa_percentual" value="0"></div>
+        <div class="form-group"><label class="form-label">Desconto (%)</label><input type="number" class="form-input" data-campo="desconto_percentual" min="0" max="99.99" step="0.01" value="0"></div>
+        <div class="form-group"><label class="form-label">Bolsa (%)</label><input type="number" class="form-input" data-campo="bolsa_percentual" min="0" max="99.99" step="0.01" value="0"></div>
         <div class="form-group"><label class="form-label">Parcelas</label><input type="number" class="form-input" data-campo="num_parcelas" min="1" max="12" value="12"></div>
         <div class="form-group"><label class="form-label">Dia do vencimento</label><input type="number" class="form-input" data-campo="dia_vencimento" min="1" max="31" value="10"></div>
         <div class="form-group">

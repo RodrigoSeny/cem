@@ -455,6 +455,13 @@ const Financeiro = {
     if (!d.aluno_id) return toastErro('Selecione o aluno.');
     if (!d.plano_id) return toastErro('Selecione o plano.');
 
+    for (const [campo, rotulo] of [['desconto_percentual', 'O desconto'], ['bolsa_percentual', 'A bolsa']]) {
+      const v = Number(d[campo] || 0);
+      if (v < 0 || (v > 0 && v < 0.01) || v > 99.99) {
+        return toastErro(`${rotulo} deve ficar entre 0,01% e 99,99% (ou 0, para não aplicar).`);
+      }
+    }
+
     try {
       const r = this.editandoContrato
         ? await Api.put('/api/financeiro/contratos/' + this.editandoContrato, d)

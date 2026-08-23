@@ -52,6 +52,7 @@ const Responsaveis = {
               ? '<span class="badge badge-green">ativo</span>'
               : `<button class="btn btn-ghost btn-sm" onclick="Responsaveis.criarAcesso(${r.id})">criar</button>`}</td>
         <td class="acoes">
+          <button class="btn-ico" onclick="Responsaveis.enviarInstrucoesApp(${r.id})" title="Enviar link e instruções do app pelo WhatsApp">📲</button>
           <button class="btn-ico" onclick="Responsaveis.abrirEdicao(${r.id})" title="Editar">✏️</button>
           <button class="btn-ico perigo" onclick="Responsaveis.excluir(${r.id})" title="Excluir">🗑️</button>
         </td>
@@ -288,6 +289,26 @@ const Responsaveis = {
     }
     irPara('usuarios');
     setTimeout(() => Usuarios.abrirNovo({ tipo: 'responsavel', responsavel_id: id }), 300);
+  },
+
+  /** Manda pelo WhatsApp o link do app e o passo a passo de instalação. */
+  enviarInstrucoesApp(id) {
+    const r = this.lista.find(x => x.id === id);
+    if (!r) return;
+
+    const contato = r.whatsapp || r.telefone;
+    if (!contato) return toast('Este responsável não tem telefone/WhatsApp cadastrado.', 'aviso');
+
+    const link = `${location.origin}/app-login`;
+    const texto = `Olá, ${nomeCurto(r.nome)}! Aqui é da secretaria do Centro Educacional Milezi. 👋\n\n` +
+      `Agora você pode acompanhar tudo pelo nosso aplicativo: mensalidades, ocorrências, comunicados e mais.\n\n` +
+      `📲 *Acesse por aqui:* ${link}\n\n` +
+      `*Como instalar no celular:*\n\n` +
+      `🤖 *Android (Chrome):* abra o link acima, toque nos 3 pontinhos (⋮) no canto superior direito e escolha "Instalar aplicativo" ou "Adicionar à tela inicial".\n\n` +
+      `🍎 *iPhone (Safari):* abra o link acima, toque no ícone de compartilhar (o quadrado com uma seta para cima, na barra inferior) e escolha "Adicionar à Tela de Início".\n\n` +
+      `Qualquer dúvida, é só chamar a secretaria!`;
+
+    window.open(`https://wa.me/55${String(contato).replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`, '_blank');
   },
 };
 

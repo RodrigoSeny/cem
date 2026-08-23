@@ -16,12 +16,21 @@ const Dashboard = {
       return;
     }
 
+    // Pendências financeiras só para quem tem acesso ao Painel Financeiro
+    let fin = null;
+    if (Sessao.pode('fin-painel')) {
+      try { fin = await Api.get('/api/financeiro/resumo'); } catch { fin = null; }
+    }
+
     const hora = new Date().getHours();
     const parte = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
     document.getElementById('painelSaudacao').textContent =
       `${parte}, ${nomeCurto(USUARIO.nome)} — ano letivo de ${d.ano_letivo}`;
 
     const c = d.cards;
+    const pendCadastro = c.semTurma || c.semResponsavel;
+    const pendFinanceiro = fin && (fin.qtd_vencidas || fin.alunos_sem_contrato.length);
+
     alvo.innerHTML = `
       <div class="stat-grid">
         ${this.card('Alunos matriculados', c.alunosAtivos, `${c.preMatricula} em pré-matrícula`, '🎓', 'c-gold', 'alunos')}
@@ -30,19 +39,36 @@ const Dashboard = {
         ${this.card('Funcionários', c.funcionarios, `${c.professores} professores`, '👔', 'c-green', 'funcionarios')}
       </div>
 
-      ${(c.semTurma || c.semResponsavel) ? `
-      <div class="card card-p mb-5" style="border-color:rgba(242,183,5,.35)">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span style="font-size:22px">💡</span>
-          <div style="flex:1;min-width:220px">
-            <div style="font-weight:700;margin-bottom:3px">Pendências de cadastro</div>
-            <div style="font-size:12.5px;color:var(--txt2)">
-              ${c.semTurma ? `<b class="c-gold">${c.semTurma}</b> aluno(s) sem turma definida. ` : ''}
-              ${c.semResponsavel ? `<b class="c-gold">${c.semResponsavel}</b> aluno(s) sem responsável vinculado.` : ''}
+      ${(pendCadastro || pendFinanceiro) ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start" class="mb-5 painel-pendencias">
+        ${pendCadastro ? `
+        <div class="card card-p" style="border-color:rgba(242,183,5,.35)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:22px">💡</span>
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:700;margin-bottom:3px">Pendências de cadastro</div>
+              <div style="font-size:12.5px;color:var(--txt2)">
+                ${c.semTurma ? `<b class="c-gold">${c.semTurma}</b> aluno(s) sem turma definida. ` : ''}
+                ${c.semResponsavel ? `<b class="c-gold">${c.semResponsavel}</b> aluno(s) sem responsável vinculado.` : ''}
+              </div>
             </div>
+            <button class="btn btn-ghost btn-sm" onclick="irPara('alunos')">Revisar alunos →</button>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="irPara('alunos')">Revisar alunos →</button>
-        </div>
+        </div>` : ''}
+        ${pendFinanceiro ? `
+        <div class="card card-p" style="border-color:rgba(255,94,94,.35)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:22px">💰</span>
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:700;margin-bottom:3px">Pendências financeiras</div>
+              <div style="font-size:12.5px;color:var(--txt2)">
+                ${fin.qtd_vencidas ? `<b class="c-red">${fin.qtd_vencidas}</b> parcela(s) vencida(s), total <b class="c-red">${moedaBR(fin.vencido)}</b>. ` : ''}
+                ${fin.alunos_sem_contrato.length ? `<b class="c-red">${fin.alunos_sem_contrato.length}</b> aluno(s) sem contrato ativo.` : ''}
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="Financeiro.verVencidas()">Ver financeiro →</button>
+          </div>
+        </div>` : ''}
       </div>` : ''}
 
       <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:start" class="painel-colunas">
@@ -67,6 +93,8 @@ const Dashboard = {
     // Coluna única em telas estreitas
     if (window.innerWidth <= 980) {
       document.querySelector('.painel-colunas').style.gridTemplateColumns = '1fr';
+      const pend = document.querySelector('.painel-pendencias');
+      if (pend) pend.style.gridTemplateColumns = '1fr';
     }
   },
 
