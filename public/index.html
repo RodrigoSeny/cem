@@ -38,6 +38,21 @@
 <div class="shell">
   <!-- ═══════════ MENU LATERAL ═══════════ -->
   <nav class="nav" id="navMenu">
+    <div class="nav-footer nav-footer-topo">
+      <div class="nav-user">
+        <div class="nav-user-avatar" id="navAvatar">--</div>
+        <div style="flex:1;min-width:0">
+          <div class="nav-user-nome" id="navNome">—</div>
+          <div class="nav-user-perfil" id="navPerfil">—</div>
+        </div>
+        <div class="nav-user-acoes">
+          <button class="btn-ico" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
+          <button class="btn-ico" onclick="alternarTema()" title="Alternar tema claro/escuro">🌗</button>
+          <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">⏻</button>
+        </div>
+      </div>
+    </div>
+
     <div class="nav-logo">
       <img src="/img/LogoMilezi.jpg" alt="CEM" id="navLogo">
       <div>
@@ -107,23 +122,6 @@
       <div class="nav-item" data-pagina="configuracoes"><span class="ico">⚙️</span> Configurações</div>
       <div class="nav-item" data-pagina="sql-manager"><span class="ico">🗄️</span> SQL Manager</div>
       <div class="nav-item" onclick="window.open('/app','_blank')"><span class="ico">📱</span> Abrir o App</div>
-    </div>
-
-    <div class="nav-footer">
-      <div class="nav-user">
-        <div class="nav-user-topo">
-          <div class="nav-user-avatar" id="navAvatar">--</div>
-          <div style="flex:1;min-width:0">
-            <div class="nav-user-nome" id="navNome">—</div>
-            <div class="nav-user-perfil" id="navPerfil">—</div>
-          </div>
-        </div>
-        <div class="nav-user-acoes">
-          <button class="btn-ico" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
-          <button class="btn-ico" onclick="alternarTema()" title="Alternar tema claro/escuro">🌗</button>
-          <button class="btn-ico perigo" onclick="Sessao.encerrar()" title="Sair do sistema">⏻</button>
-        </div>
-      </div>
     </div>
   </nav>
 
