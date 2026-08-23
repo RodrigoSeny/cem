@@ -58,7 +58,7 @@ self.addEventListener('fetch', e => {
 
 // ── Notificações push ─────────────────────────────────────────
 // Chega mesmo com o app fechado (é o próprio navegador que acorda o
-// service worker). O corpo vem em JSON: { titulo, corpo, tela }.
+// service worker). O corpo vem em JSON: { titulo, corpo, tela, icone }.
 self.addEventListener('push', e => {
   let dados = {};
   try { dados = e.data ? e.data.json() : {}; } catch { dados = {}; }
@@ -66,7 +66,7 @@ self.addEventListener('push', e => {
   const titulo = dados.titulo || 'Centro Educacional Milezi';
   const opcoes = {
     body: dados.corpo || '',
-    icon: '/img/icone-cem.svg',
+    icon: dados.icone || '/img/icone-cem.svg',
     badge: '/img/icone-cem.svg',
     data: { tela: dados.tela || 'inicio' },
   };

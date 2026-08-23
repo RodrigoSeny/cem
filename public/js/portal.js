@@ -48,9 +48,13 @@ window.addEventListener('beforeinstallprompt', e => {
 async function instalarApp() {
   if (!promptInstalacao) return;
   promptInstalacao.prompt();
-  await promptInstalacao.userChoice;
+  const { outcome } = await promptInstalacao.userChoice;
   promptInstalacao = null;
   document.getElementById('barraInstalar').style.display = 'none';
+
+  // Aproveita a mesma interação (ainda "quente" pro navegador) pra já
+  // pedir a permissão de notificação, sem precisar de outro toque depois.
+  if (outcome === 'accepted') Portal.alternarNotificacoes();
 }
 
 if ('serviceWorker' in navigator) {

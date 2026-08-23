@@ -19,11 +19,17 @@ if (ATIVO) {
   console.warn('⚠️  VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY não configuradas no .env — notificações push desativadas.');
 }
 
+/** Logotipo configurado em Configurações — mesmo usado no menu e no login. */
+function logoEscola() {
+  const e = db.prepare('SELECT logo_url FROM escola WHERE id = 1').get();
+  return e?.logo_url || '/img/icone-cem.svg';
+}
+
 /** Manda um push para todos os aparelhos inscritos de um usuário. */
 async function enviarParaUsuario(usuarioId, payload) {
   if (!ATIVO) return;
   const inscricoes = db.prepare('SELECT * FROM push_subscriptions WHERE usuario_id = ?').all(usuarioId);
-  const corpo = JSON.stringify(payload);
+  const corpo = JSON.stringify({ icone: logoEscola(), ...payload });
 
   for (const s of inscricoes) {
     try {
