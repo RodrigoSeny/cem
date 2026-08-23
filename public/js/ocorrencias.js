@@ -69,6 +69,9 @@ const Ocorrencias = {
           ${o.visivel_responsavel
               ? '<span class="badge badge-green">sim</span>'
               : '<span class="badge badge-cinza">interna</span>'}
+          ${o.visivel_responsavel && o.qtd_responsaveis
+              ? `<div style="font-size:11px;color:var(--txt2);margin-top:4px">👁️ ${o.qtd_leituras}/${o.qtd_responsaveis} leram</div>`
+              : ''}
           ${o.exige_ciencia
               ? (o.qtd_ciencias > 0
                   ? `<span class="badge badge-green" title="${o.qtd_ciencias} ciência(s) registrada(s)">✅ ${o.qtd_ciencias}</span>`
@@ -121,6 +124,7 @@ const Ocorrencias = {
     document.getElementById('modalOcorrSub').textContent = '';
     document.getElementById('ocorrAnexos').innerHTML =
       '<div class="form-hint">Salve a ocorrência para anexar fotos e documentos.</div>';
+    document.getElementById('ocorrLeitura').innerHTML = '';
 
     this.toggleCiencia();
     this.sugerirGravidade();
@@ -148,9 +152,43 @@ const Ocorrencias = {
       `${o.aluno_nome} · registrada por ${o.registrado_nome || '—'} em ${dataHoraBR(o.criado_em)}`;
 
     this.toggleCiencia();
+    this.renderLeitura(o);
     await UI.painelAnexos('ocorrAnexos', 'ocorrencia', id);
     this.aplicarBloqueio(o);
     abrirModal('modalOcorrencia');
+  },
+
+  /** Quem já leu e quem já deu ciência, pra quem a ocorrência foi compartilhada. */
+  renderLeitura(o) {
+    const alvo = document.getElementById('ocorrLeitura');
+    if (!o.visivel_responsavel || !(o.destinatarios || []).length) { alvo.innerHTML = ''; return; }
+
+    const total = o.destinatarios.length;
+    const lidos = o.destinatarios.filter(d => d.lido_em).length;
+    const cientes = o.destinatarios.filter(d => d.ciente_em).length;
+
+    alvo.innerHTML = `
+      <div class="secao-titulo">Leitura e ciência</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:14px">
+        <div class="stat-card"><div class="stat-label">Responsáveis</div><div class="stat-val">${total}</div></div>
+        <div class="stat-card"><div class="stat-label">Leram</div><div class="stat-val c-blue">${lidos}</div></div>
+        ${o.exige_ciencia ? `<div class="stat-card"><div class="stat-label">Ciência</div><div class="stat-val c-green">${cientes}</div></div>` : ''}
+      </div>
+      <div class="tabela-wrap"><table class="tabela">
+        <thead><tr><th>Responsável</th><th>Leitura</th>${o.exige_ciencia ? '<th>Ciência</th>' : ''}</tr></thead>
+        <tbody>
+          ${o.destinatarios.map(d => `
+            <tr>
+              <td style="font-weight:600">${escapar(d.responsavel_nome)}</td>
+              <td style="font-size:12px">${d.lido_em
+                  ? `<span class="c-blue">${dataHoraBR(d.lido_em)}</span>`
+                  : '<span class="badge badge-cinza">não lida</span>'}</td>
+              ${o.exige_ciencia ? `<td style="font-size:12px">${d.ciente_em
+                  ? `<span class="c-green">✅ ${dataHoraBR(d.ciente_em)}</span>`
+                  : '<span class="badge badge-gold">pendente</span>'}</td>` : ''}
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`;
   },
 
   /**

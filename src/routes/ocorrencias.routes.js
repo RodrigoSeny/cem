@@ -46,7 +46,9 @@ const SELECT_BASE = `
          a.nome AS aluno_nome, a.matricula,
          t.nome AS turma_nome,
          (SELECT COUNT(*) FROM anexos an WHERE an.entidade = 'ocorrencia' AND an.entidade_id = o.id) AS qtd_anexos,
-         (SELECT COUNT(*) FROM ocorrencia_ciencias oc WHERE oc.ocorrencia_id = o.id) AS qtd_ciencias
+         (SELECT COUNT(*) FROM ocorrencia_ciencias oc WHERE oc.ocorrencia_id = o.id) AS qtd_ciencias,
+         (SELECT COUNT(*) FROM ocorrencia_leituras ol WHERE ol.ocorrencia_id = o.id) AS qtd_leituras,
+         (SELECT COUNT(*) FROM aluno_responsaveis ar WHERE ar.aluno_id = o.aluno_id) AS qtd_responsaveis
     FROM ocorrencias o
     JOIN alunos a ON a.id = o.aluno_id
     LEFT JOIN turmas t ON t.id = a.turma_id
@@ -88,6 +90,17 @@ router.get('/:id', rota((req, res) => {
     SELECT id, categoria, descricao, nome_original, mime, tamanho, criado_em
       FROM anexos WHERE entidade = 'ocorrencia' AND entidade_id = ?
      ORDER BY criado_em DESC`).all(o.id);
+
+  // Leitura/ciência só existe pra quem a ocorrência foi compartilhada.
+  o.destinatarios = o.visivel_responsavel ? db.prepare(`
+    SELECT r.id AS responsavel_id, r.nome AS responsavel_nome,
+           l.lido_em, c.ciente_em
+      FROM aluno_responsaveis ar
+      JOIN responsaveis r ON r.id = ar.responsavel_id
+      LEFT JOIN ocorrencia_leituras l ON l.ocorrencia_id = ? AND l.responsavel_id = r.id
+      LEFT JOIN ocorrencia_ciencias c ON c.ocorrencia_id = ? AND c.responsavel_id = r.id
+     WHERE ar.aluno_id = ?
+     ORDER BY r.nome`).all(o.id, o.id, o.aluno_id) : [];
 
   res.json(o);
 }));

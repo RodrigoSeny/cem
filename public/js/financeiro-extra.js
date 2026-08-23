@@ -28,10 +28,8 @@ Object.assign(Financeiro, {
   _previa: null,
   _planilha: null,
 
-  // ── Abas de Cadastros ──────────────────────────────────────
+  // ── Seções de Cadastros (navegação só pelo menu lateral) ─────
   abrirAbaCadastro(nome) {
-    document.querySelectorAll('#finAbasCadastro .aba').forEach(a =>
-      a.classList.toggle('active', a.dataset.cadaba === nome));
     ['planos', 'contratos', 'cobrancas', 'centros'].forEach(n =>
       document.getElementById('cadaba-' + n)?.classList.toggle('active', n === nome));
 
@@ -108,18 +106,20 @@ Object.assign(Financeiro, {
       `${this.planos.length} plano(s) · ${ativos} ativo(s)`;
   },
 
-  /** Garante a lista de centros carregada para os seletores. */
+  /** Recarrega a lista de centros pros seletores — sempre na hora, pra não
+   *  ficar faltando um centro criado depois da primeira visita à página. */
   async garantirCentros() {
-    if (!this.centros.length) {
-      try { this.centros = await Api.get('/api/financeiro/centros-custo'); } catch { this.centros = []; }
-    }
+    try { this.centros = await Api.get('/api/financeiro/centros-custo'); }
+    catch { this.centros = this.centros || []; }
     return this.centros;
   },
 
-  opcoesCentros(selecionado = '', vazio = 'Selecione…') {
+  /** `incluirInativos`: use nos filtros de consulta — nas telas de vincular
+   *  (nova despesa/cobrança), deixe false pra não atribuir a um centro encerrado. */
+  opcoesCentros(selecionado = '', vazio = 'Selecione…', incluirInativos = false) {
     return `<option value="">${vazio}</option>` + this.centros
-      .filter(c => c.ativo || String(c.id) === String(selecionado))
-      .map(c => `<option value="${c.id}" ${String(c.id) === String(selecionado) ? 'selected' : ''}>${escapar(c.codigo)} — ${escapar(c.nome)}</option>`)
+      .filter(c => incluirInativos || c.ativo || String(c.id) === String(selecionado))
+      .map(c => `<option value="${c.id}" ${String(c.id) === String(selecionado) ? 'selected' : ''}>${escapar(c.codigo)} — ${escapar(c.nome)}${c.ativo ? '' : ' (inativo)'}</option>`)
       .join('');
   },
 
@@ -129,11 +129,12 @@ Object.assign(Financeiro, {
     const corpo = document.getElementById('cobrCorpo');
     corpo.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:26px"><span class="spinner"></span></td></tr>`;
 
+    // Reconstrói as opções toda vez (pode ter surgido um centro novo),
+    // preservando o filtro que já estava selecionado.
     const filtroCentro = document.getElementById('cobrFiltroCentro');
-    if (!filtroCentro.dataset.pronto) {
-      filtroCentro.innerHTML = this.opcoesCentros('', 'Todos os centros');
-      filtroCentro.dataset.pronto = '1';
-    }
+    const centroSelecionado = filtroCentro.value;
+    filtroCentro.innerHTML = this.opcoesCentros('', 'Todos os centros', true);
+    filtroCentro.value = centroSelecionado;
 
     try {
       this.cobrancas = await Api.get('/api/financeiro/cobrancas', {
@@ -647,11 +648,12 @@ Object.assign(Financeiro, {
     const corpo = document.getElementById('despCorpo');
     corpo.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px"><span class="spinner"></span></td></tr>`;
 
+    // Reconstrói as opções toda vez (pode ter surgido um centro novo),
+    // preservando o filtro que já estava selecionado.
     const filtro = document.getElementById('despFiltroCentro');
-    if (!filtro.dataset.pronto) {
-      filtro.innerHTML = this.opcoesCentros('', 'Todos os centros');
-      filtro.dataset.pronto = '1';
-    }
+    const centroSelecionado = filtro.value;
+    filtro.innerHTML = this.opcoesCentros('', 'Todos os centros', true);
+    filtro.value = centroSelecionado;
 
     try {
       this.despesas = await Api.get('/api/financeiro/despesas', {
@@ -1022,15 +1024,12 @@ Financeiro.carregarParcelas = async function () {
 // ── Ligação das páginas ao menu ──────────────────────────────
 Carregadores['fin-painel'] = () => Financeiro.carregarResumo();
 Carregadores['fin-cadastros'] = () => Financeiro.abrirAbaCadastro(
-  document.querySelector('#finAbasCadastro .aba.active')?.dataset.cadaba || 'planos');
+  document.querySelector('#pagina-fin-cadastros .aba-conteudo.active')?.id.replace('cadaba-', '') || 'planos');
 Carregadores['fin-recebimentos'] = () => Financeiro.abrirAbaRecebimento(
   document.querySelector('#pagina-fin-recebimentos .aba-conteudo.active')?.id.replace('recaba-', '') || 'mensalidades');
 Carregadores['fin-pagamentos'] = () => Financeiro.carregarDespesas();
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('#finAbasCadastro .aba').forEach(a =>
-    a.addEventListener('click', () => Financeiro.abrirAbaCadastro(a.dataset.cadaba)));
-
   ['cobrFiltroCentro', 'cobrFiltroAtiva'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', () => Financeiro.carregarCobrancas()));
   ['despFiltroCentro', 'despFiltroStatus'].forEach(id =>

@@ -84,10 +84,14 @@ function irPara(pagina, aba) {
     return toast('Seu perfil não tem acesso a este módulo.', 'aviso');
   }
 
-  // Chegando em Recebimentos sem uma aba específica (atalho, "voltar" etc.),
-  // mantém a seção que já estava aberta em vez de perder a marcação do menu.
+  // Chegando em Recebimentos/Cadastros sem uma aba específica (atalho,
+  // "voltar" etc.), mantém a seção que já estava aberta em vez de perder
+  // a marcação do menu.
   if (pagina === 'fin-recebimentos' && !aba) {
     aba = document.querySelector('#pagina-fin-recebimentos .aba-conteudo.active')?.id.replace('recaba-', '') || 'mensalidades';
+  }
+  if (pagina === 'fin-cadastros' && !aba) {
+    aba = document.querySelector('#pagina-fin-cadastros .aba-conteudo.active')?.id.replace('cadaba-', '') || 'planos';
   }
 
   document.querySelectorAll('.pagina').forEach(el => el.classList.remove('active'));
@@ -111,6 +115,8 @@ function irPara(pagina, aba) {
 
   if (pagina === 'fin-recebimentos') {
     Financeiro.abrirAbaRecebimento(aba);
+  } else if (pagina === 'fin-cadastros') {
+    Financeiro.abrirAbaCadastro(aba);
   } else {
     const carregar = Carregadores[pagina];
     if (carregar) carregar();

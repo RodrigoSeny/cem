@@ -74,7 +74,14 @@
       <div class="nav-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">💰</span> Financeiro</div>
       <div class="nav-submenu">
         <div class="nav-submenu-item" data-pagina="fin-painel"><span class="ico">📊</span> Painel</div>
-        <div class="nav-submenu-item" data-pagina="fin-cadastros"><span class="ico">🗂️</span> Cadastros</div>
+
+        <div class="nav-submenu-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">🗂️</span> Cadastros</div>
+        <div class="nav-submenu nivel2">
+          <div class="nav-submenu-item nivel2" data-pagina="fin-cadastros" data-aba="planos"><span class="ico">📋</span> Planos</div>
+          <div class="nav-submenu-item nivel2" data-pagina="fin-cadastros" data-aba="contratos"><span class="ico">📄</span> Contratos</div>
+          <div class="nav-submenu-item nivel2" data-pagina="fin-cadastros" data-aba="cobrancas"><span class="ico">💲</span> Cobranças variáveis</div>
+          <div class="nav-submenu-item nivel2" data-pagina="fin-cadastros" data-aba="centros"><span class="ico">🏷️</span> Centros de custo</div>
+        </div>
 
         <div class="nav-submenu-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">💵</span> Recebimentos</div>
         <div class="nav-submenu nivel2">
@@ -422,13 +429,6 @@
           <p class="pagina-sub">Planos, contratos, cobranças variáveis e centros de custo</p>
         </div>
         <div class="pagina-acoes" id="finCadAcoes"></div>
-      </div>
-
-      <div class="abas" id="finAbasCadastro">
-        <button class="aba active" data-cadaba="planos">Planos</button>
-        <button class="aba" data-cadaba="contratos">Contratos</button>
-        <button class="aba" data-cadaba="cobrancas">Cobranças variáveis</button>
-        <button class="aba" data-cadaba="centros">Centros de custo</button>
       </div>
 
       <div class="aba-conteudo active" id="cadaba-planos">
@@ -1482,12 +1482,14 @@
         </label>
       </div>
 
+      <div id="ocorrLeitura"></div>
+
       <div class="secao-titulo">Fotos e documentos</div>
       <div id="ocorrAnexos"></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="fecharModal('modalOcorrencia')">Cancelar</button>
-      <button class="btn btn-ico oculto" id="btnInvalidarOcorrencia" onclick="Ocorrencias.invalidar()" title="Invalidar">🚫 Invalidar</button>
+      <button class="btn btn-danger oculto" id="btnInvalidarOcorrencia" onclick="Ocorrencias.invalidar()">🚫 Invalidar</button>
       <button class="btn btn-primary" id="btnSalvarOcorrencia" onclick="Ocorrencias.salvar()">💾 Salvar ocorrência</button>
     </div>
   </div>
