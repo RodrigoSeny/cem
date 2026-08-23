@@ -53,10 +53,8 @@ Object.assign(Financeiro, {
     })[nome]();
   },
 
-  // ── Abas de Recebimentos ───────────────────────────────────
+  // ── Seções de Recebimentos (navegação só pelo menu lateral) ──
   abrirAbaRecebimento(nome) {
-    document.querySelectorAll('#finAbasRecebimento .aba').forEach(a =>
-      a.classList.toggle('active', a.dataset.recaba === nome));
     ['mensalidades', 'movimento', 'planilha'].forEach(n =>
       document.getElementById('recaba-' + n)?.classList.toggle('active', n === nome));
 
@@ -1026,14 +1024,12 @@ Carregadores['fin-painel'] = () => Financeiro.carregarResumo();
 Carregadores['fin-cadastros'] = () => Financeiro.abrirAbaCadastro(
   document.querySelector('#finAbasCadastro .aba.active')?.dataset.cadaba || 'planos');
 Carregadores['fin-recebimentos'] = () => Financeiro.abrirAbaRecebimento(
-  document.querySelector('#finAbasRecebimento .aba.active')?.dataset.recaba || 'mensalidades');
+  document.querySelector('#pagina-fin-recebimentos .aba-conteudo.active')?.id.replace('recaba-', '') || 'mensalidades');
 Carregadores['fin-pagamentos'] = () => Financeiro.carregarDespesas();
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#finAbasCadastro .aba').forEach(a =>
     a.addEventListener('click', () => Financeiro.abrirAbaCadastro(a.dataset.cadaba)));
-  document.querySelectorAll('#finAbasRecebimento .aba').forEach(a =>
-    a.addEventListener('click', () => Financeiro.abrirAbaRecebimento(a.dataset.recaba)));
 
   ['cobrFiltroCentro', 'cobrFiltroAtiva'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', () => Financeiro.carregarCobrancas()));

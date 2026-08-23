@@ -171,9 +171,13 @@ function authMiddleware(req, res, next) {
 
   req.usuario = payload;
 
-  // Responsável só enxerga o portal
+  // Responsável só enxerga o portal — exceção pontual para baixar um anexo
+  // específico (foto/documento de ocorrência ou do aluno): a própria rota
+  // (/api/anexos/:id/arquivo) confere se o arquivo é de um aluno vinculado
+  // a ele antes de servir o conteúdo, então não precisa ficar sob /api/portal.
   if (payload.tipo === 'responsavel') {
     if (url.startsWith('/api/portal/') || url.startsWith('/api/auth/')) return next();
+    if (req.method === 'GET' && /^\/api\/anexos\/\d+\/arquivo$/.test(url)) return next();
     return res.status(403).json({ error: 'Acesso restrito ao portal de responsáveis.' });
   }
 

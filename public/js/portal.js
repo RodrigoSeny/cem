@@ -176,17 +176,29 @@ const Portal = {
             : 'Ainda não há alunos vinculados ao seu cadastro. Procure a secretaria.'}</p>
       </div>
 
-      ${d.aguardando_ciencia > 0 ? `
+      ${d.aguardando_ciencia_msgs > 0 ? `
         <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('mensagens')">
           <div class="aluno-linha">
             <div class="aluno-av">📣</div>
             <div style="flex:1">
-              <div class="aluno-nome">${d.aguardando_ciencia} item(ns) aguardando sua ciência</div>
-              <div class="aluno-info">Toque para ver mensagens e ocorrências</div>
+              <div class="aluno-nome">${d.aguardando_ciencia_msgs} mensagem(ns) aguardando sua ciência</div>
+              <div class="aluno-info">Toque para ver os comunicados</div>
             </div>
             <span class="seta">›</span>
           </div>
-        </div>` : d.nao_lidas > 0 ? `
+        </div>` : ''}
+      ${d.aguardando_ciencia_ocorr > 0 ? `
+        <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('ocorrencias')">
+          <div class="aluno-linha">
+            <div class="aluno-av">📌</div>
+            <div style="flex:1">
+              <div class="aluno-nome">${d.aguardando_ciencia_ocorr} ocorrência(s) aguardando sua ciência</div>
+              <div class="aluno-info">Toque para ver o histórico</div>
+            </div>
+            <span class="seta">›</span>
+          </div>
+        </div>` : ''}
+      ${!d.aguardando_ciencia && d.nao_lidas > 0 ? `
         <div class="cartao toque" onclick="irTela('mensagens')">
           <div class="aluno-linha">
             <div class="aluno-av">✉️</div>

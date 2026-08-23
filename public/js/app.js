@@ -85,9 +85,9 @@ function irPara(pagina, aba) {
   }
 
   // Chegando em Recebimentos sem uma aba específica (atalho, "voltar" etc.),
-  // mantém a aba que já estava aberta em vez de perder a marcação do menu.
+  // mantém a seção que já estava aberta em vez de perder a marcação do menu.
   if (pagina === 'fin-recebimentos' && !aba) {
-    aba = document.querySelector('#finAbasRecebimento .aba.active')?.dataset.recaba || 'mensalidades';
+    aba = document.querySelector('#pagina-fin-recebimentos .aba-conteudo.active')?.id.replace('recaba-', '') || 'mensalidades';
   }
 
   document.querySelectorAll('.pagina').forEach(el => el.classList.remove('active'));

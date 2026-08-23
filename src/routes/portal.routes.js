@@ -20,7 +20,8 @@ function naoLidas(responsavelId) {
      WHERE responsavel_id = ? AND lido_em IS NULL`).get(responsavelId).c;
 }
 
-/** Quantas aguardam ciência. */
+/** Quantas mensagens e quantas ocorrências aguardam ciência (contadas à parte
+ *  porque cada uma abre numa tela diferente do app). */
 function aguardandoCiencia(responsavelId) {
   const msgs = db.prepare(`
     SELECT COUNT(*) c
@@ -39,7 +40,7 @@ function aguardandoCiencia(responsavelId) {
           WHERE oc.ocorrencia_id = o.id AND oc.responsavel_id = ?
        )`).get(responsavelId, responsavelId).c;
 
-  return msgs + ocorr;
+  return { total: msgs + ocorr, msgs, ocorr };
 }
 
 /** IDs dos alunos que o responsável logado pode consultar. */
@@ -101,13 +102,17 @@ router.get('/inicio', rota((req, res) => {
        WHERE d.responsavel_id = ? AND d.aluno_id IS NULL AND d.lido_em IS NULL
        ORDER BY m.id DESC LIMIT 5`).all(u.responsavel_id);
 
+    const ciencia = aguardandoCiencia(u.responsavel_id);
+
     return res.json({
       perfil: 'responsavel',
       nome: u.nome,
       responsavel: resp,
       alunos: alunos.map(a => ({ ...a, idade: idade(a.data_nascimento) })),
       nao_lidas: naoLidas(u.responsavel_id),
-      aguardando_ciencia: aguardandoCiencia(u.responsavel_id),
+      aguardando_ciencia: ciencia.total,
+      aguardando_ciencia_msgs: ciencia.msgs,
+      aguardando_ciencia_ocorr: ciencia.ocorr,
       financeiro_vencido: { parcelas: financeiro.parcelas, total: Number(Number(financeiro.total).toFixed(2)) },
       ocorr_pendentes,
       mensagens_globais,
@@ -270,7 +275,7 @@ router.get('/mensagens/nao-lidas', rota((req, res) => {
   if (u.tipo !== 'responsavel') return res.json({ nao_lidas: 0, aguardando_ciencia: 0 });
   res.json({
     nao_lidas: naoLidas(u.responsavel_id),
-    aguardando_ciencia: aguardandoCiencia(u.responsavel_id),
+    aguardando_ciencia: aguardandoCiencia(u.responsavel_id).total,
   });
 }));
 
