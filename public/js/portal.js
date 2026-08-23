@@ -173,12 +173,34 @@ const Portal = {
     const hora = new Date().getHours();
     const parte = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
+    const sugerirNotif = inicioDados.perfil === 'responsavel' ? await this.notificacoesPendentes() : false;
+
     alvo.innerHTML = inicioDados.perfil === 'responsavel'
-      ? this.inicioResponsavel(inicioDados, parte)
+      ? this.inicioResponsavel(inicioDados, parte, sugerirNotif)
       : this.inicioFuncionario(inicioDados, parte);
   },
 
-  inicioResponsavel(d, parte) {
+  /** Vale a pena sugerir ativar notificações? (suportado, ainda não ativado, usuário não dispensou o aviso). */
+  async notificacoesPendentes() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    if (Notification.permission === 'denied') return false;
+    if (localStorage.getItem('cem_notif_dispensado')) return false;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      return !(await reg.pushManager.getSubscription());
+    } catch { return false; }
+  },
+
+  ativarNotificacoesInicio() {
+    this.alternarNotificacoes().then(() => this.carregarInicio());
+  },
+
+  dispensarAvisoNotif() {
+    localStorage.setItem('cem_notif_dispensado', '1');
+    this.carregarInicio();
+  },
+
+  inicioResponsavel(d, parte, sugerirNotif) {
     const alunos = d.alunos || [];
     const venc = d.financeiro_vencido || { parcelas: 0, total: 0 };
     const temVarios = alunos.length > 1;
@@ -193,6 +215,18 @@ const Portal = {
               : `Você acompanha ${alunos.length} aluno no Centro Educacional Milezi.`
             : 'Ainda não há alunos vinculados ao seu cadastro. Procure a secretaria.'}</p>
       </div>
+
+      ${sugerirNotif ? `
+        <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="Portal.ativarNotificacoesInicio()">
+          <div class="aluno-linha">
+            <div class="aluno-av">🔔</div>
+            <div style="flex:1">
+              <div class="aluno-nome">Ative as notificações</div>
+              <div class="aluno-info">Receba avisos de mensagens e ocorrências, mesmo com o app fechado</div>
+            </div>
+            <button class="btn-ico" onclick="event.stopPropagation();Portal.dispensarAvisoNotif()" title="Não mostrar de novo">✕</button>
+          </div>
+        </div>` : ''}
 
       ${d.aguardando_ciencia_msgs > 0 ? `
         <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('mensagens')">
