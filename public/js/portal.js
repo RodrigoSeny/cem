@@ -63,11 +63,22 @@ window.addEventListener('popstate', async () => {
     return;
   }
 
-  history.pushState({ cemApp: true }, '', location.href);
   perguntandoSaida = true;
   const sair = await confirmar('Deseja realmente sair do aplicativo?', { titulo: 'Sair do app', textoOk: 'Sair', perigo: false });
   perguntandoSaida = false;
-  if (sair) window.close();
+
+  if (!sair) {
+    // Só re-arma a armadilha se o usuário decidiu continuar no app — assim
+    // o "voltar" mais uma vez tem histórico pra interceptar de novo.
+    history.pushState({ cemApp: true }, '', location.href);
+    return;
+  }
+
+  // Confirmou saída: tenta fechar direto (funciona em vários navegadores
+  // instalados como app) e, sem re-armar a armadilha, deixa o histórico
+  // esgotado — o próximo "voltar" físico já não encontra mais nada pra essa
+  // página interceptar, e o próprio Android/navegador encerra o app.
+  window.close();
 });
 
 // ── Instalação do PWA ─────────────────────────────────────────
@@ -228,11 +239,22 @@ const Portal = {
     const parte = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
     const sugerirNotif = inicioDados.perfil === 'responsavel' ? await this.notificacoesPendentes() : false;
-    const biometriaOk = inicioDados.perfil === 'responsavel' ? await this.suportaBiometria() : false;
+    const mostrarBotaoBiometria = inicioDados.perfil === 'responsavel' ? await this.podeOferecerBiometria() : false;
 
     alvo.innerHTML = inicioDados.perfil === 'responsavel'
-      ? this.inicioResponsavel(inicioDados, parte, sugerirNotif, biometriaOk)
+      ? this.inicioResponsavel(inicioDados, parte, sugerirNotif, mostrarBotaoBiometria)
       : this.inicioFuncionario(inicioDados, parte);
+  },
+
+  /** Só oferece o atalho de "salvar acesso" se o aparelho suporta E o
+   *  responsável ainda não tem nenhuma credencial salva (evita repetir o
+   *  convite pra quem já configurou). */
+  async podeOferecerBiometria() {
+    if (!(await this.suportaBiometria())) return false;
+    try {
+      const credenciais = await Api.get('/api/auth/webauthn/credenciais');
+      return credenciais.length === 0;
+    } catch { return false; }
   },
 
   /** Vale a pena sugerir ativar notificações? (suportado, ainda não ativado, usuário não dispensou o aviso). */
