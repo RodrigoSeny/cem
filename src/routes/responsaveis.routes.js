@@ -54,7 +54,9 @@ router.get('/', rota((req, res) => {
   const linhas = db.prepare(`
     SELECT r.*,
            (SELECT COUNT(*) FROM aluno_responsaveis ar WHERE ar.responsavel_id = r.id) AS qtd_alunos,
-           (SELECT COUNT(*) FROM usuarios u WHERE u.responsavel_id = r.id AND u.ativo = 1)  AS tem_acesso
+           (SELECT COUNT(*) FROM usuarios u WHERE u.responsavel_id = r.id AND u.ativo = 1)  AS tem_acesso,
+           (SELECT id    FROM usuarios u WHERE u.responsavel_id = r.id ORDER BY u.ativo DESC, u.id LIMIT 1) AS usuario_id,
+           (SELECT login FROM usuarios u WHERE u.responsavel_id = r.id ORDER BY u.ativo DESC, u.id LIMIT 1) AS usuario_login
       FROM responsaveis r${where}
      ORDER BY r.nome`).all(...par);
   res.json(linhas);

@@ -291,9 +291,12 @@ const Responsaveis = {
     setTimeout(() => Usuarios.abrirNovo({ tipo: 'responsavel', responsavel_id: id }), 300);
   },
 
-  /** Manda pelo WhatsApp o link do app, o passo a passo de instalação e,
-   *  quando informado, o login/senha provisória recém-gerados do acesso. */
-  enviarInstrucoesApp(id, credenciais = null) {
+  /** Manda pelo WhatsApp o link do app, o passo a passo de instalação e o
+   *  login/senha provisória do acesso. Quando `credenciais` não é informado
+   *  (clique direto no botão 📲), resolve sozinho: cria o acesso se ainda não
+   *  existir, ou gera e envia uma nova senha provisória se já existir — a
+   *  senha atual não pode ser recuperada, só substituída. */
+  async enviarInstrucoesApp(id, credenciais = null) {
     // Cai pro Cache (sempre carregado) se a tela de Responsáveis ainda não
     // tiver sido aberta nesta sessão — ex.: acesso criado direto em Usuários.
     const r = this.lista.find(x => x.id === id) || Cache.responsaveis.find(x => x.id === id);
@@ -301,6 +304,24 @@ const Responsaveis = {
 
     const contato = r.whatsapp || r.telefone;
     if (!contato) return toast('Este responsável não tem telefone/WhatsApp cadastrado.', 'aviso');
+
+    if (!credenciais) {
+      if (!r.usuario_id) {
+        toast('Este responsável ainda não tem acesso ao app — crie o acesso primeiro.', 'aviso');
+        return this.criarAcesso(id);
+      }
+      const ok = await confirmar(
+        `Gerar uma nova senha provisória para enviar a ${r.nome}? A senha atual dele(a) para de funcionar assim que a nova for enviada.`,
+        { titulo: 'Nova senha provisória', textoOk: 'Gerar e enviar', perigo: false }
+      );
+      if (!ok) return;
+
+      const senha = Usuarios.senhaSugerida();
+      try {
+        const resp = await Api.post(`/api/usuarios/${r.usuario_id}/senha`, { senha });
+        credenciais = { login: r.usuario_login, senha, validaAte: resp.senha_valida_ate };
+      } catch (e) { return toastErro(e.message); }
+    }
 
     const blocoAcesso = credenciais
       ? `🔐 *Seu acesso:*\n` +

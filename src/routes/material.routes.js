@@ -299,4 +299,4 @@ router.get('/turmas/:turmaId/checklist-resumo', rota((req, res) => {
   res.json(resumo);
 }));
 
-module.exports = router;
+module.exports = { router, itensAplicaveis };

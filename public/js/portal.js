@@ -32,6 +32,7 @@ function irTela(tela) {
   if (tela === 'mensagens') Portal.renderMensagens();
   if (tela === 'financeiro') Portal.renderFinanceiro();
   if (tela === 'ocorrencias') Portal.renderOcorrencias();
+  if (tela === 'material') Portal.renderMaterial();
 }
 
 document.querySelectorAll('.rodape button').forEach(b => {
@@ -291,6 +292,16 @@ const Portal = {
               <span class="seta">›</span>
             </div>
           </div>`).join('')}` : ''}
+
+      ${alunos.length ? `
+        <div class="cartao toque" onclick="irTela('material')">
+          <div class="aluno-linha">
+            <div class="aluno-av">🎒</div>
+            <div style="flex:1"><div class="aluno-nome">Lista de material</div>
+              <div class="aluno-info">Veja o que já foi entregue e o que ainda falta</div></div>
+            <span class="seta">›</span>
+          </div>
+        </div>` : ''}
 
       <div class="titulo-secao">${temVarios ? 'Selecione um filho' : 'Meus filhos'}</div>
       ${alunos.length ? alunos.map(a => {
@@ -636,6 +647,7 @@ const Portal = {
     const telAtiva = document.querySelector('.tela.active')?.id?.replace('tela-', '');
     if (telAtiva === 'financeiro') this.renderFinanceiro();
     else if (telAtiva === 'ocorrencias') this.renderOcorrencias();
+    else if (telAtiva === 'material') this.renderMaterial();
   },
 
   /** Remove o filho ativo e mostra o picker na tela atual. */
@@ -645,6 +657,7 @@ const Portal = {
     const telAtiva = document.querySelector('.tela.active')?.id?.replace('tela-', '');
     if (telAtiva === 'financeiro') this.renderFinanceiro();
     else if (telAtiva === 'ocorrencias') this.renderOcorrencias();
+    else if (telAtiva === 'material') this.renderMaterial();
     else irTela('inicio');
   },
 
@@ -792,6 +805,79 @@ const Portal = {
           <span class="seta">›</span>
         </div>
       </div>`;
+  },
+
+  // ── Material (tela dedicada — responsável) ───────────────────
+  async renderMaterial() {
+    const alvo = document.getElementById('materialConteudo');
+    alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
+
+    const alunos = inicioDados?.alunos || [];
+    if (!alunos.length) {
+      alvo.innerHTML = '<div class="vazio"><span class="ico">🎒</span><div class="titulo">Nenhum aluno vinculado</div></div>';
+      return;
+    }
+    if (!alunoSelecionado && alunos.length > 1) {
+      alvo.innerHTML = this._pickerFilhos('Escolha o filho para ver a lista de material.');
+      return;
+    }
+    try {
+      this._material = await Api.get(`/api/portal/alunos/${alunoSelecionado.id}/material`);
+    } catch (e) {
+      alvo.innerHTML = this._childHeader()
+        + `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
+      return;
+    }
+    this.desenharMaterial();
+  },
+
+  desenharMaterial() {
+    const alvo = document.getElementById('materialConteudo');
+    const dados = this._material;
+    const itens = dados?.itens || [];
+
+    if (!itens.length) {
+      alvo.innerHTML = this._childHeader() + `<div class="vazio"><span class="ico">🎒</span>
+        <div class="titulo">Nenhuma lista de material cadastrada</div>
+        <div class="sub">A escola ainda não vinculou uma lista à turma do seu filho.</div></div>`;
+      return;
+    }
+
+    const resumo = dados.faltando > 0
+      ? `<div class="cartao" style="border-color:rgba(255,94,94,.4)">
+          <div class="aluno-nome">⏳ ${dados.faltando} de ${dados.total} item(ns) ainda faltando</div>
+        </div>`
+      : `<div class="cartao" style="border-color:var(--green)">
+          <div class="aluno-nome" style="color:var(--green)">✅ Tudo entregue!</div>
+        </div>`;
+
+    const aviso = `
+      <div class="cartao" style="background:var(--gold-soft);border-color:rgba(242,183,5,.4);margin-top:8px">
+        <div class="aluno-info" style="font-size:11.5px;line-height:1.5">
+          ℹ️ Se você já entregou algum material e ele não aparece marcado aqui, entre em contato com a secretaria.
+        </div>
+      </div>`;
+
+    const porLista = {};
+    for (const it of itens) (porLista[it.lista_nome] ||= []).push(it);
+
+    const listas = Object.entries(porLista).map(([nome, its]) => `
+      <div class="titulo-secao">${escapar(nome)}</div>
+      ${its.map(it => `
+        <div class="cartao" style="padding:10px 14px;margin-bottom:6px">
+          <div class="aluno-linha">
+            <div class="aluno-av" style="${it.enviado ? 'background:rgba(47,212,143,.15);color:var(--green)' : 'background:rgba(255,94,94,.12);color:var(--red)'}">
+              ${it.enviado ? '✅' : '⏳'}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="aluno-nome">${it.quantidade > 1 ? `${it.quantidade}x ` : ''}${escapar(it.descricao)}</div>
+              ${it.observacao ? `<div class="aluno-info">${escapar(it.observacao)}</div>` : ''}
+            </div>
+          </div>
+        </div>`).join('')}
+    `).join('');
+
+    alvo.innerHTML = this._childHeader() + resumo + aviso + listas;
   },
 
   /** Abre o detalhe da ocorrência em modal e marca como lida na hora. */

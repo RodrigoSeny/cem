@@ -10,6 +10,7 @@ const express = require('express');
 const { db, log, agora } = require('../db');
 const { rota, idade } = require('../util');
 const { temPagina } = require('../auth');
+const { itensAplicaveis } = require('./material.routes');
 const Push = require('../push');
 
 const router = express.Router();
@@ -405,6 +406,28 @@ router.post('/ocorrencias/:id/ciente', rota((req, res) => {
 
   log(req, 'ciencia', 'ocorrencias', id, `Ciência de ${u.nome}`);
   res.json({ ok: true, ciente_em: c.ciente_em });
+}));
+
+// ══════════════════════ MATERIAL (checklist) ═══════════════════
+
+// ── GET /api/portal/alunos/:id/material — lista de material do aluno,
+//    com o que já foi entregue e o que ainda falta ─────────────
+router.get('/alunos/:id/material', rota((req, res) => {
+  const id = Number(req.params.id);
+  if (!podeVerAluno(req.usuario, id)) return res.status(403).json({ error: 'Você não tem acesso a este aluno.' });
+
+  const aluno = db.prepare(`
+    SELECT a.id, a.nome, a.turma_id, t.nome AS turma_nome
+      FROM alunos a LEFT JOIN turmas t ON t.id = a.turma_id WHERE a.id = ?`).get(id);
+  if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
+
+  const itens = itensAplicaveis(id, aluno.turma_id);
+  res.json({
+    aluno: { id: aluno.id, nome: aluno.nome, turma_nome: aluno.turma_nome },
+    itens,
+    total: itens.length,
+    faltando: itens.filter(i => !i.enviado).length,
+  });
 }));
 
 // ══════════════════════ FINANCEIRO ════════════════════════════

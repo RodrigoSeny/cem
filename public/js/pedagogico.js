@@ -323,6 +323,29 @@ const Pedagogico = {
       `${this.alunoAtual.nome} · ${this.alunoAtual.turma_nome || 'sem turma'}`, e);
   },
 
+  /** Só os itens ainda não entregues — pra mandar/entregar ao responsável cobrar o que falta. */
+  async imprimirFaltantes() {
+    if (!this.alunoAtual) return toastErro('Nada para imprimir.');
+    const faltantes = this.itensChecklist.filter(i => !i.enviado);
+    if (!faltantes.length) return toastErro('Não há itens pendentes para este aluno.');
+    const e = await Relatorios.carregarEscola();
+
+    const porLista = {};
+    for (const it of faltantes) (porLista[it.lista_nome] ||= []).push(it);
+
+    const corpo = Object.entries(porLista).map(([nome, its]) => `
+      <div class="ficha-secao">${escapar(nome)}</div>
+      ${Relatorios.tabela(['Qtd.', 'Descrição'],
+        its.map(it => [it.quantidade, `${it.descricao}${it.observacao ? ` (${it.observacao})` : ''}`]))}
+    `).join('') + `
+      <div style="font-size:10.5px;margin-top:14px;color:#555">
+        ℹ️ Se você já entregou algum destes itens e ele não está sendo considerado, entre em contato com a secretaria.
+      </div>`;
+
+    Relatorios.publicar('Itens Pendentes de Entrega', corpo,
+      `${this.alunoAtual.nome} · ${this.alunoAtual.turma_nome || 'sem turma'} · ${faltantes.length} pendente(s)`, e);
+  },
+
   async imprimirChecklist() {
     if (!this.alunoAtual || !this.itensChecklist.length) return toastErro('Nada para imprimir.');
     const e = await Relatorios.carregarEscola();

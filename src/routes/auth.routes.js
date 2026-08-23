@@ -75,6 +75,13 @@ router.post('/login', rota((req, res) => {
     return res.status(403).json({ error: 'Sua senha provisória expirou. Peça um novo acesso à secretaria.' });
   }
 
+  // A tela de login do app (/app-login) é exclusiva dos responsáveis — o
+  // link que vai no WhatsApp não deve virar uma porta de entrada pro sistema
+  // completo pra quem tiver uma senha de funcionário.
+  if (req.body.contexto === 'app' && u.tipo !== 'responsavel') {
+    return res.status(403).json({ error: 'Esta entrada é exclusiva dos responsáveis. Funcionários devem acessar pelo sistema.' });
+  }
+
   db.prepare('UPDATE usuarios SET tentativas = 0, bloqueado_ate = NULL, ultimo_login = ? WHERE id = ?')
     .run(agora(), u.id);
 
