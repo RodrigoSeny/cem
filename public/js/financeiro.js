@@ -396,8 +396,8 @@ const Financeiro = {
         <td>${escapar(c.turma_nome || '—')}</td>
         <td>${escapar(c.plano_nome)}</td>
         <td class="mono">${moedaBR(c.valor_mensalidade)}</td>
-        <td>${(Number(c.desconto_percentual) + Number(c.bolsa_percentual)) > 0
-              ? `<span class="badge badge-gold">${Number(c.desconto_percentual) + Number(c.bolsa_percentual)}%</span>`
+        <td>${descontoEfetivo(c.desconto_percentual, c.bolsa_percentual) > 0
+              ? `<span class="badge badge-gold">${descontoEfetivo(c.desconto_percentual, c.bolsa_percentual)}%</span>`
               : '<span class="c-txt3">—</span>'}</td>
         <td style="font-size:12.5px">${escapar(c.responsavel_nome || '—')}</td>
         <td>${c.qtd_parcelas}</td>
@@ -492,8 +492,9 @@ const Financeiro = {
   previaContrato() {
     const d = lerFormulario('formContrato');
     const bruto = Number(String(d.valor_mensalidade || '0').replace(/\./g, '').replace(',', '.'));
-    const desc = (Number(d.desconto_percentual || 0) + Number(d.bolsa_percentual || 0)) / 100;
-    const liquido = bruto * (1 - Math.min(desc, 1));
+    // Desconto e bolsa em cascata: primeiro um, depois o outro sobre o que sobrou.
+    const apósDesconto = bruto * (1 - Math.min(Number(d.desconto_percentual || 0) / 100, 1));
+    const liquido = apósDesconto * (1 - Math.min(Number(d.bolsa_percentual || 0) / 100, 1));
     const parcelas = Number(d.num_parcelas) || 12;
 
     document.getElementById('contratoPrevia').innerHTML = `
@@ -653,8 +654,10 @@ const Financeiro = {
       const base = this._valorBaseLote(f.turma_id, tipoAluno);
       const desc = paraNumero(document.querySelector(`[data-lote-desc="${i}"]`)?.value);
       const bolsa = paraNumero(document.querySelector(`[data-lote-bolsa="${i}"]`)?.value);
-      const aposManual = base * (1 - Math.min((desc + bolsa) / 100, 1));
-      const final = aposManual * (1 - Math.min(descontoIrmao / 100, 1));
+      // Desconto, bolsa e irmão em cascata — cada um sobre o que sobrou da camada anterior.
+      const aposDesconto = base * (1 - Math.min(desc / 100, 1));
+      const aposBolsa = aposDesconto * (1 - Math.min(bolsa / 100, 1));
+      const final = aposBolsa * (1 - Math.min(descontoIrmao / 100, 1));
 
       const cel = document.querySelector(`[data-lote-previa="${i}"]`);
       if (cel) cel.innerHTML = `${moedaBR(final)}${descontoIrmao > 0 ? ` <span class="badge badge-gold">-${descontoIrmao}% irmão</span>` : ''}`;
@@ -809,8 +812,8 @@ const Financeiro = {
           <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)">
             <strong>${c.ano_letivo}</strong> · ${escapar(c.plano_nome)} ·
             ${moedaBR(c.valor_mensalidade)} × ${c.num_parcelas}
-            ${(Number(c.desconto_percentual) + Number(c.bolsa_percentual)) > 0
-              ? ` · desconto ${Number(c.desconto_percentual) + Number(c.bolsa_percentual)}%` : ''}
+            ${descontoEfetivo(c.desconto_percentual, c.bolsa_percentual) > 0
+              ? ` · desconto ${descontoEfetivo(c.desconto_percentual, c.bolsa_percentual)}%` : ''}
             · resp.: ${escapar(c.responsavel_nome || '—')}
           </div>`).join('')}` : ''}
 

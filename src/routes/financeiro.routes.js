@@ -175,19 +175,24 @@ function gerarParcelas(contrato) {
   // Remove as em aberto para recriar com os valores atuais
   db.prepare(`DELETE FROM mensalidades WHERE contrato_id = ? AND status <> 'paga'`).run(contrato.id);
 
-  // Desconto manual (desconto + bolsa, somados) e desconto de irmão são camadas
-  // separadas: o de irmão incide sobre o valor que já saiu com o manual, não
-  // sobre o valor cheio (composto, não somado).
+  // Desconto, bolsa e desconto de irmão são camadas em cascata, aplicadas em
+  // sequência sobre o valor já reduzido pela camada anterior — nunca somadas
+  // e aplicadas de uma vez sobre o valor cheio.
   const bruto = Number(contrato.valor_mensalidade);
-  const descontoManual = Math.min((Number(contrato.desconto_percentual) + Number(contrato.bolsa_percentual)) / 100, 1);
-  const valorAposManual = bruto * (1 - descontoManual);
-  const valorDescontoManual = Number((bruto - valorAposManual).toFixed(2));
+
+  const descontoPct = Math.min(Number(contrato.desconto_percentual) / 100, 1);
+  const apósDesconto = bruto * (1 - descontoPct);
+  const valorDesconto1 = Number((bruto - apósDesconto).toFixed(2));
+
+  const bolsaPct = Math.min(Number(contrato.bolsa_percentual) / 100, 1);
+  const apósBolsa = apósDesconto * (1 - bolsaPct);
+  const valorBolsa = Number((apósDesconto - apósBolsa).toFixed(2));
 
   const descontoIrmao = Math.min(Number(contrato.desconto_irmao_percentual) / 100, 1);
-  const valorFinal = valorAposManual * (1 - descontoIrmao);
-  const valorDescontoIrmao = Number((valorAposManual - valorFinal).toFixed(2));
+  const valorFinal = apósBolsa * (1 - descontoIrmao);
+  const valorDescontoIrmao = Number((apósBolsa - valorFinal).toFixed(2));
 
-  const valorDesconto = Number((valorDescontoManual + valorDescontoIrmao).toFixed(2));
+  const valorDesconto = Number((valorDesconto1 + valorBolsa + valorDescontoIrmao).toFixed(2));
 
   const stmt = db.prepare(`
     INSERT INTO mensalidades (contrato_id, aluno_id, competencia, parcela, descricao, valor_original, valor_desconto, vencimento, status, criado_em)
@@ -220,8 +225,9 @@ function gerarParcelas(contrato) {
     );
 
     item.run(info.lastInsertRowid, descricao, bruto, 'mensalidade', 0);
-    if (valorDescontoManual > 0) item.run(info.lastInsertRowid, 'Desconto', -valorDescontoManual, 'desconto', 1);
-    if (valorDescontoIrmao > 0) item.run(info.lastInsertRowid, 'Desconto de irmão', -valorDescontoIrmao, 'desconto', 2);
+    if (valorDesconto1 > 0) item.run(info.lastInsertRowid, 'Desconto', -valorDesconto1, 'desconto', 1);
+    if (valorBolsa > 0) item.run(info.lastInsertRowid, 'Bolsa', -valorBolsa, 'desconto', 2);
+    if (valorDescontoIrmao > 0) item.run(info.lastInsertRowid, 'Desconto de irmão', -valorDescontoIrmao, 'desconto', 3);
 
     criadas++;
   }

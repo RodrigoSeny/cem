@@ -18,6 +18,12 @@ const TIPOS_CENTRO = {
 const paraNumero = v => Number(String(v ?? '0').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
 const mesAtual = () => new Date().toISOString().slice(0, 7);
 
+/** Percentual efetivo de desconto+bolsa aplicados em cascata (não somados). */
+const descontoEfetivo = (desconto, bolsa) => {
+  const restante = (1 - Math.min(Number(desconto) / 100, 1)) * (1 - Math.min(Number(bolsa) / 100, 1));
+  return Number(((1 - restante) * 100).toFixed(2));
+};
+
 Object.assign(Financeiro, {
   cobrancas: [],
   centros: [],
