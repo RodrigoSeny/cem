@@ -107,6 +107,24 @@ function urlBase64ParaUint8Array(base64String) {
   return saida;
 }
 
+/** base64url → ArrayBuffer, pro WebAuthn (challenge, ids de credencial). */
+function b64urlParaBuffer(base64url) {
+  const padding = '='.repeat((4 - base64url.length % 4) % 4);
+  const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const bruto = window.atob(base64);
+  const saida = new Uint8Array(bruto.length);
+  for (let i = 0; i < bruto.length; ++i) saida[i] = bruto.charCodeAt(i);
+  return saida.buffer;
+}
+
+/** ArrayBuffer → base64url, pra mandar a resposta do WebAuthn de volta ao servidor. */
+function bufferParaB64url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  for (const b of bytes) str += String.fromCharCode(b);
+  return window.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 // ══════════════════════════════════════════════════════════════
 const Portal = {
   alunosBusca: [],
@@ -210,9 +228,10 @@ const Portal = {
     const parte = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
     const sugerirNotif = inicioDados.perfil === 'responsavel' ? await this.notificacoesPendentes() : false;
+    const biometriaOk = inicioDados.perfil === 'responsavel' ? await this.suportaBiometria() : false;
 
     alvo.innerHTML = inicioDados.perfil === 'responsavel'
-      ? this.inicioResponsavel(inicioDados, parte, sugerirNotif)
+      ? this.inicioResponsavel(inicioDados, parte, sugerirNotif, biometriaOk)
       : this.inicioFuncionario(inicioDados, parte);
   },
 
@@ -236,7 +255,7 @@ const Portal = {
     this.carregarInicio();
   },
 
-  inicioResponsavel(d, parte, sugerirNotif) {
+  inicioResponsavel(d, parte, sugerirNotif, biometriaOk) {
     const alunos = d.alunos || [];
     const venc = d.financeiro_vencido || { parcelas: 0, total: 0 };
     const temVarios = alunos.length > 1;
@@ -330,6 +349,16 @@ const Portal = {
             <div class="aluno-av">🎒</div>
             <div style="flex:1"><div class="aluno-nome">Lista de material</div>
               <div class="aluno-info">Veja o que já foi entregue e o que ainda falta</div></div>
+            <span class="seta">›</span>
+          </div>
+        </div>` : ''}
+
+      ${biometriaOk ? `
+        <div class="cartao toque" onclick="Portal.registrarBiometria()">
+          <div class="aluno-linha">
+            <div class="aluno-av">🔓</div>
+            <div style="flex:1"><div class="aluno-nome">Salvar acesso com desbloqueio do celular</div>
+              <div class="aluno-info">Entre com a digital, o rosto ou o PIN do aparelho, sem digitar a senha</div></div>
             <span class="seta">›</span>
           </div>
         </div>` : ''}
@@ -1125,7 +1154,13 @@ const Portal = {
   },
 
   // ── Conta ───────────────────────────────────────────────────
-  renderConta() {
+  async renderConta() {
+    const mostrarBiometria = USUARIO.tipo === 'responsavel' && await Portal.suportaBiometria();
+    let credenciaisBiometria = [];
+    if (mostrarBiometria) {
+      try { credenciaisBiometria = await Api.get('/api/auth/webauthn/credenciais'); } catch {}
+    }
+
     document.getElementById('contaConteudo').innerHTML = `
       <div class="cartao">
         <div class="aluno-linha">
@@ -1143,6 +1178,29 @@ const Portal = {
         <div class="info-linha"><span class="rot">Senha</span><span class="val">
           <button onclick="Portal.trocarSenha()" style="background:var(--card2);border:1px solid var(--border);color:var(--txt);border-radius:8px;padding:6px 11px;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer">🔑 Trocar senha</button>
         </span></div>
+      </div>
+
+      ${mostrarBiometria ? `
+      <div class="titulo-secao">Acesso rápido</div>
+      <div class="cartao toque" onclick="Portal.registrarBiometria()">
+        <div class="aluno-linha">
+          <div class="aluno-av">🔓</div>
+          <div style="flex:1"><div class="aluno-nome">Salvar acesso com desbloqueio do celular</div>
+            <div class="aluno-info">Entre com a digital, o rosto ou o PIN do aparelho, sem digitar a senha</div></div>
+          <span class="seta">›</span>
+        </div>
+      </div>
+      ${credenciaisBiometria.map(c => `
+        <div class="cartao">
+          <div class="aluno-linha">
+            <div class="aluno-av">📱</div>
+            <div style="flex:1;min-width:0">
+              <div class="aluno-nome">${escapar(c.nome_dispositivo || 'Aparelho')}</div>
+              <div class="aluno-info">Ativado em ${dataBR(c.criado_em)}${c.ultimo_uso ? ' · último uso ' + dataBR(c.ultimo_uso) : ''}</div>
+            </div>
+            <button class="btn-ico perigo" onclick="event.stopPropagation();Portal.removerBiometria(${c.id})" title="Remover">🗑️</button>
+          </div>
+        </div>`).join('')}` : ''}
       </div>
 
       <div class="titulo-secao">Notificações</div>
@@ -1178,6 +1236,63 @@ const Portal = {
       </div>`;
 
     this.statusNotificacoes();
+  },
+
+  // ── Biometria/PIN do celular (WebAuthn) ──────────────────────
+  async suportaBiometria() {
+    if (!window.PublicKeyCredential) return false;
+    try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+    catch { return false; }
+  },
+
+  async registrarBiometria() {
+    let opcoesResp;
+    try { opcoesResp = await Api.post('/api/auth/webauthn/registro-opcoes'); }
+    catch (e) { return toastErro(e.message); }
+
+    const opcoes = opcoesResp.opcoes;
+    opcoes.challenge = b64urlParaBuffer(opcoes.challenge);
+    opcoes.user.id = b64urlParaBuffer(opcoes.user.id);
+    if (opcoes.excludeCredentials) {
+      opcoes.excludeCredentials = opcoes.excludeCredentials.map(c => ({ ...c, id: b64urlParaBuffer(c.id) }));
+    }
+
+    let credential;
+    try {
+      credential = await navigator.credentials.create({ publicKey: opcoes });
+    } catch (e) {
+      if (e.name === 'NotAllowedError') return; // usuário cancelou o prompt — sem erro
+      return toastErro('Não foi possível usar a biometria deste aparelho.');
+    }
+
+    const resposta = {
+      id: credential.id,
+      rawId: bufferParaB64url(credential.rawId),
+      type: credential.type,
+      clientExtensionResults: credential.getClientExtensionResults(),
+      response: {
+        clientDataJSON: bufferParaB64url(credential.response.clientDataJSON),
+        attestationObject: bufferParaB64url(credential.response.attestationObject),
+        transports: credential.response.getTransports ? credential.response.getTransports() : undefined,
+      },
+    };
+
+    try {
+      await Api.post('/api/auth/webauthn/registro', { flowId: opcoesResp.flowId, resposta });
+      toast('Acesso rápido ativado! Da próxima vez, é só tocar e usar a biometria.');
+      this.renderConta();
+    } catch (e) { toastErro(e.message); }
+  },
+
+  async removerBiometria(id) {
+    const ok = await confirmar('Remover este acesso rápido? Vai precisar cadastrar de novo pra usar biometria neste aparelho.',
+      { titulo: 'Remover acesso', textoOk: 'Remover' });
+    if (!ok) return;
+    try {
+      await Api.excluir(`/api/auth/webauthn/credenciais/${id}`);
+      toast('Acesso removido.');
+      this.renderConta();
+    } catch (e) { toastErro(e.message); }
   },
 
   // ── Notificações push ───────────────────────────────────────

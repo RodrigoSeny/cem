@@ -129,4 +129,4 @@ router.post('/trocar-senha', rota((req, res) => {
 // ── POST /api/auth/logout ─────────────────────────────────────
 router.post('/logout', (req, res) => res.json({ ok: true }));
 
-module.exports = router;
+module.exports = { router, montarSessao };

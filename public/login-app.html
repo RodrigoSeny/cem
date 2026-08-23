@@ -83,6 +83,14 @@
     .btn-entrar:active:not(:disabled) { transform: scale(.99); }
     .btn-entrar:disabled { opacity: .6; cursor: not-allowed; }
 
+    .btn-biometria {
+      display: none; width: 100%; margin-top: 10px;
+      background: transparent; border: 1px solid var(--border); color: var(--txt);
+      border-radius: 12px; padding: 12px; font-family: var(--font);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-biometria:hover { border-color: var(--gold); color: var(--gold); }
+
     .erro {
       display: none;
       background: rgba(255,94,94,.11); border: 1px solid rgba(255,94,94,.3);
@@ -135,6 +143,7 @@
       </div>
 
       <button class="btn-entrar" id="btnEntrar" onclick="entrar()">Entrar no app</button>
+      <button class="btn-biometria" id="btnBiometria" onclick="entrarComBiometria()">🔓 Entrar com biometria</button>
 
       <div class="instalar" id="barraInstalar">
         <span style="font-size:17px">📲</span>
@@ -156,6 +165,78 @@
       if (e.nome_fantasia) document.getElementById('nomeEscola').textContent = e.nome_fantasia;
       if (e.logo_url) document.getElementById('logoEscola').src = e.logo_url;
     }).catch(() => {});
+
+    // Só mostra "Entrar com biometria" se o aparelho realmente suportar
+    // (tem trava de tela com digital/rosto/PIN configurada).
+    (async function () {
+      if (!window.PublicKeyCredential) return;
+      try {
+        if (await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()) {
+          document.getElementById('btnBiometria').style.display = 'block';
+        }
+      } catch (e) {}
+    })();
+
+    function b64urlParaBuffer(base64url) {
+      const padding = '='.repeat((4 - base64url.length % 4) % 4);
+      const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const bruto = window.atob(base64);
+      const saida = new Uint8Array(bruto.length);
+      for (let i = 0; i < bruto.length; ++i) saida[i] = bruto.charCodeAt(i);
+      return saida.buffer;
+    }
+    function bufferParaB64url(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let str = '';
+      for (const b of bytes) str += String.fromCharCode(b);
+      return window.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    async function entrarComBiometria() {
+      const btn = document.getElementById('btnBiometria');
+      document.getElementById('erroMsg').classList.remove('mostrar');
+      btn.disabled = true;
+
+      try {
+        const r = await fetch('/api/auth/webauthn/login-opcoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const { flowId, opcoes } = await r.json();
+        if (!r.ok) throw new Error(opcoes?.error || 'Não foi possível iniciar o login por biometria.');
+
+        opcoes.challenge = b64urlParaBuffer(opcoes.challenge);
+        if (opcoes.allowCredentials) {
+          opcoes.allowCredentials = opcoes.allowCredentials.map(c => ({ ...c, id: b64urlParaBuffer(c.id) }));
+        }
+
+        const credential = await navigator.credentials.get({ publicKey: opcoes });
+        const resposta = {
+          id: credential.id,
+          rawId: bufferParaB64url(credential.rawId),
+          type: credential.type,
+          clientExtensionResults: credential.getClientExtensionResults(),
+          response: {
+            clientDataJSON: bufferParaB64url(credential.response.clientDataJSON),
+            authenticatorData: bufferParaB64url(credential.response.authenticatorData),
+            signature: bufferParaB64url(credential.response.signature),
+            userHandle: credential.response.userHandle ? bufferParaB64url(credential.response.userHandle) : undefined,
+          },
+        };
+
+        const resp = await fetch('/api/auth/webauthn/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flowId, resposta }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Não foi possível entrar.');
+
+        sessionStorage.setItem('cem_token', data.token);
+        sessionStorage.setItem('cem_usuario', JSON.stringify(data.usuario));
+        window.location.replace('/app');
+      } catch (e) {
+        if (e.name !== 'NotAllowedError') mostrarErro(e.message || 'Não foi possível entrar com biometria.');
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
     // Já autenticado? só pula direto se for responsável — esta tela é
     // exclusiva do app dos pais, não é uma porta alternativa pro sistema.

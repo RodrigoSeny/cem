@@ -103,6 +103,8 @@ const ROTA_PAGINAS = {
 const ROTAS_PUBLICAS = [
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/auth/webauthn/login-opcoes',   // ninguém está logado ainda nesse ponto
+  '/api/auth/webauthn/login',
   '/api/escola/publica',
   '/api/status',            // health check do servidor
 ];

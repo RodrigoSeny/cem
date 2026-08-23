@@ -275,6 +275,20 @@ CREATE TABLE IF NOT EXISTS material_aluno_itens (
 );
 CREATE INDEX IF NOT EXISTS idx_material_aluno_itens_aluno ON material_aluno_itens (aluno_id);
 
+-- ── Credenciais de biometria/PIN do celular (WebAuthn), pro login sem senha
+-- ── no app dos responsáveis ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS webauthn_credenciais (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario_id       INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  credential_id    TEXT NOT NULL UNIQUE,
+  chave_publica    TEXT NOT NULL,
+  contador         INTEGER NOT NULL DEFAULT 0,
+  nome_dispositivo TEXT,
+  criado_em        TEXT DEFAULT (datetime('now','localtime')),
+  ultimo_uso       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_webauthn_usuario ON webauthn_credenciais (usuario_id);
+
 -- ── Usuários do sistema (funcionários) e do portal (responsáveis) ──
 CREATE TABLE IF NOT EXISTS usuarios (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,

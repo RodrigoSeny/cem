@@ -43,7 +43,8 @@ app.use(authMiddleware);
 // ── Rotas da API ──────────────────────────────────────────────
 const { usuarios: rotasUsuarios, perfis: rotasPerfis } = require('./src/routes/usuarios.routes');
 
-app.use('/api/auth',          require('./src/routes/auth.routes'));
+app.use('/api/auth',          require('./src/routes/auth.routes').router);
+app.use('/api/auth/webauthn', require('./src/routes/webauthn.routes'));
 app.use('/api/escola',        require('./src/routes/escola.routes'));
 app.use('/api/alunos',        require('./src/routes/alunos.routes'));
 app.use('/api/responsaveis',  require('./src/routes/responsaveis.routes'));
