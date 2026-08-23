@@ -340,14 +340,38 @@ router.get('/alunos/:id/ocorrencias', rota((req, res) => {
     o.anexos = db.prepare(`
       SELECT id, categoria, nome_original, mime FROM anexos
        WHERE entidade = 'ocorrencia' AND entidade_id = ?`).all(o.id);
-    if (respId && o.exige_ciencia) {
-      const c = db.prepare(
-        'SELECT ciente_em FROM ocorrencia_ciencias WHERE ocorrencia_id = ? AND responsavel_id = ?'
+    if (respId) {
+      if (o.exige_ciencia) {
+        const c = db.prepare(
+          'SELECT ciente_em FROM ocorrencia_ciencias WHERE ocorrencia_id = ? AND responsavel_id = ?'
+        ).get(o.id, respId);
+        o.ciente_em = c ? c.ciente_em : null;
+      }
+      const l = db.prepare(
+        'SELECT lido_em FROM ocorrencia_leituras WHERE ocorrencia_id = ? AND responsavel_id = ?'
       ).get(o.id, respId);
-      o.ciente_em = c ? c.ciente_em : null;
+      o.lido_em = l ? l.lido_em : null;
     }
   }
   res.json(linhas);
+}));
+
+// ── POST /api/portal/ocorrencias/:id/lida ─────────────────────
+router.post('/ocorrencias/:id/lida', rota((req, res) => {
+  const u = req.usuario;
+  if (u.tipo !== 'responsavel') return res.status(403).json({ error: 'Apenas o responsável marca a leitura.' });
+
+  const id = Number(req.params.id);
+  const o = db.prepare('SELECT id FROM ocorrencias WHERE id = ? AND visivel_responsavel = 1').get(id);
+  if (!o) return res.status(404).json({ error: 'Ocorrência não encontrada.' });
+
+  db.prepare(`
+    INSERT INTO ocorrencia_leituras (ocorrencia_id, responsavel_id, lido_em)
+    VALUES (?, ?, ?)
+    ON CONFLICT(ocorrencia_id, responsavel_id) DO NOTHING`)
+    .run(id, u.responsavel_id, agora());
+
+  res.json({ ok: true });
 }));
 
 // ── POST /api/portal/ocorrencias/:id/ciente ───────────────────
@@ -391,6 +415,17 @@ router.get('/alunos/:id/financeiro', rota((req, res) => {
      WHERE m.aluno_id = ? AND m.status <> 'cancelada'
      ORDER BY m.vencimento`).all(id);
 
+  // Itens embutidos no documento único (mensalidade + cobranças do mês) —
+  // é o que deixa claro pro responsável o que compõe cada valor.
+  const itensPorParcela = {};
+  if (parcelas.length) {
+    const itens = db.prepare(`
+      SELECT mensalidade_id, descricao, valor, tipo FROM mensalidade_itens
+       WHERE mensalidade_id IN (${parcelas.map(() => '?').join(',')})
+       ORDER BY ordem`).all(...parcelas.map(p => p.id));
+    for (const it of itens) (itensPorParcela[it.mensalidade_id] ||= []).push(it);
+  }
+
   const hoje = new Date().toISOString().slice(0, 10);
   const detalhadas = parcelas.map(m => {
     const total = Number(m.valor_original) - Number(m.valor_desconto) + Number(m.valor_acrescimo);
@@ -398,6 +433,7 @@ router.get('/alunos/:id/financeiro', rota((req, res) => {
     const vencida = m.status === 'aberta' && m.vencimento < hoje;
     return {
       ...m,
+      itens: itensPorParcela[m.id] || [],
       valor_total: Number(total.toFixed(2)),
       saldo,
       situacao: m.status === 'paga' ? 'paga' : (vencida ? 'vencida' : 'aberta'),

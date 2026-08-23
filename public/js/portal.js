@@ -562,6 +562,10 @@ const Portal = {
           <div class="fin-linha">
             <div>
               <div style="font-size:13px;font-weight:600">${escapar(p.descricao || competenciaBR(p.competencia))}</div>
+              ${p.itens && p.itens.length > 1 ? `
+                <div style="font-size:11px;color:var(--txt2);margin-top:2px">
+                  ${p.itens.map(it => `${escapar(it.descricao)} (${moedaBR(it.valor)})`).join(' + ')}
+                </div>` : ''}
               <div style="font-size:11px;color:var(--txt3)">vence em ${dataBR(p.vencimento)}</div>
             </div>
             <div class="fin-valor">
@@ -577,10 +581,10 @@ const Portal = {
       </div>`;
   },
 
-  /** Histórico compartilhado pela escola. */
+  /** Ocorrências compartilhadas pela escola. */
   blocoOcorrencias(lista) {
     return `
-      <div class="titulo-secao">Histórico compartilhado</div>
+      <div class="titulo-secao">Ocorrências compartilhadas</div>
       ${lista.map(o => `
         <div class="cartao" id="ocorr-card-${o.id}">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
@@ -612,9 +616,12 @@ const Portal = {
     try {
       const r = await Api.post(`/api/portal/ocorrencias/${id}/ciente`);
       botao.textContent = `✅ Ciência registrada em ${dataHoraBR(r.ciente_em)}`;
+      const o = (this._ocorrencias || []).find(x => x.id === id);
+      if (o) { o.ciente_em = r.ciente_em; o.lido_em = o.lido_em || r.ciente_em; }
       toast('Ciência registrada. Obrigado!');
       this.atualizarSelo();
       this.carregarInicio();
+      this.desenharOcorrencias();
     } catch (e) {
       botao.disabled = false;
       botao.textContent = 'Estou ciente';
@@ -722,7 +729,7 @@ const Portal = {
     }
   },
 
-  // ── Ocorrências — histórico (tela dedicada — responsável) ────
+  // ── Ocorrências (tela dedicada — responsável, lista estilo caixa de entrada) ──
   async renderOcorrencias() {
     const alvo = document.getElementById('ocorrenciasConteudo');
     alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
@@ -733,26 +740,92 @@ const Portal = {
       return;
     }
     if (!alunoSelecionado && alunos.length > 1) {
-      alvo.innerHTML = this._pickerFilhos('Escolha o filho para ver o histórico de ocorrências.');
+      alvo.innerHTML = this._pickerFilhos('Escolha o filho para ver as ocorrências.');
       return;
     }
     try {
-      const lista = await Api.get(`/api/portal/alunos/${alunoSelecionado.id}/ocorrencias`);
-      const pendentes = lista.filter(o => o.exige_ciencia && !o.ciente_em).length;
-      const aviso = pendentes > 0
-        ? `<div class="cartao" style="border-color:var(--gold);background:var(--gold-soft);margin-bottom:4px">
-            <div class="aluno-nome">📣 ${pendentes} ocorrência(s) aguardando sua ciência</div>
-            <div class="aluno-info" style="margin-top:4px">Toque em "Estou ciente" abaixo para confirmar.</div>
-           </div>`
-        : '';
-      alvo.innerHTML = this._childHeader() + aviso + (lista.length
-        ? this.blocoOcorrencias(lista)
-        : `<div class="vazio"><span class="ico">📌</span>
-            <div class="titulo">Nenhuma ocorrência compartilhada</div>
-            <div class="sub">A escola compartilhará ocorrências relevantes aqui.</div></div>`);
+      this._ocorrencias = await Api.get(`/api/portal/alunos/${alunoSelecionado.id}/ocorrencias`);
     } catch (e) {
       alvo.innerHTML = this._childHeader()
         + `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
+      return;
+    }
+    this.desenharOcorrencias();
+  },
+
+  desenharOcorrencias() {
+    const alvo = document.getElementById('ocorrenciasConteudo');
+    const lista = this._ocorrencias || [];
+    const pendentes = lista.filter(o => o.exige_ciencia && !o.ciente_em).length;
+    const aviso = pendentes > 0
+      ? `<div class="cartao" style="border-color:var(--gold);background:var(--gold-soft);margin-bottom:4px">
+          <div class="aluno-nome">📣 ${pendentes} ocorrência(s) aguardando sua ciência</div>
+          <div class="aluno-info" style="margin-top:4px">Toque para abrir e confirme com "Estou ciente".</div>
+         </div>`
+      : '';
+
+    alvo.innerHTML = this._childHeader() + aviso + (lista.length
+      ? lista.map(o => this.linhaOcorrencia(o)).join('')
+      : `<div class="vazio"><span class="ico">📌</span>
+          <div class="titulo">Nenhuma ocorrência compartilhada</div>
+          <div class="sub">A escola compartilhará ocorrências relevantes aqui.</div></div>`);
+  },
+
+  /** Uma linha da caixa de entrada de ocorrências — toque abre o detalhe completo. */
+  linhaOcorrencia(o) {
+    const pendenteCiencia = o.exige_ciencia && !o.ciente_em;
+    const naoLida = !o.lido_em;
+
+    return `
+      <div class="cartao toque lista-linha ${naoLida ? 'nao-lida' : ''}" onclick="Portal.abrirOcorrencia(${o.id})">
+        <div class="aluno-linha">
+          <div class="aluno-av" style="${pendenteCiencia ? 'background:rgba(255,94,94,.15);color:var(--red)' : ''}">📌</div>
+          <div style="flex:1;min-width:0">
+            <div class="aluno-nome" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapar(o.titulo)}</div>
+            <div class="aluno-info">
+              ${dataBR(o.data_ocorrencia)}${o.hora_ocorrencia ? ' ' + escapar(o.hora_ocorrencia) : ''} · ${badgeGravidade(o.gravidade)}
+            </div>
+          </div>
+          ${pendenteCiencia ? '<span class="badge badge-red">ciência</span>'
+            : naoLida ? '<span class="badge badge-gold">nova</span>' : ''}
+          <span class="seta">›</span>
+        </div>
+      </div>`;
+  },
+
+  /** Abre o detalhe da ocorrência em modal e marca como lida na hora. */
+  async abrirOcorrencia(id) {
+    const o = (this._ocorrencias || []).find(x => x.id === id);
+    if (!o) return;
+
+    document.getElementById('ocorrAppTitulo').textContent = o.titulo;
+    document.getElementById('ocorrAppSub').textContent =
+      `${dataBR(o.data_ocorrencia)}${o.hora_ocorrencia ? ' ' + o.hora_ocorrencia : ''}`;
+    document.getElementById('ocorrAppCorpo').innerHTML = `
+      <div style="margin-bottom:10px">${badgeGravidade(o.gravidade)}</div>
+      ${o.descricao ? `<div style="font-size:13px;color:var(--txt2);line-height:1.6">${escapar(o.descricao)}</div>` : ''}
+      ${o.providencia ? `<div style="font-size:12.5px;color:var(--txt2);margin-top:10px"><strong>Providência:</strong> ${escapar(o.providencia)}</div>` : ''}
+      ${o.registrado_nome ? `<div style="font-size:11px;color:var(--txt3);margin-top:10px">Registrado por ${escapar(o.registrado_nome)}</div>` : ''}
+      ${(o.anexos || []).length ? `
+        <div class="chips" style="margin-top:10px">
+          ${o.anexos.map(an => `
+            <button class="badge badge-blue" style="border:none;cursor:pointer"
+                    onclick="Anexos.abrir(${an.id}, '${escapar(an.nome_original).replace(/'/g, "\\'")}')">
+              ${Anexos.icone(an.mime)} ver anexo
+            </button>`).join('')}
+        </div>` : ''}
+      ${o.exige_ciencia ? (o.ciente_em
+        ? `<button class="btn-ciente" disabled>✅ Ciência registrada em ${dataHoraBR(o.ciente_em)}</button>`
+        : `<button class="btn-ciente" onclick="Portal.darCienciaOcorrencia(${o.id}, this)">Estou ciente</button>`)
+        : ''}`;
+    abrirModal('modalOcorrenciaApp');
+
+    if (!o.lido_em) {
+      try {
+        await Api.post(`/api/portal/ocorrencias/${id}/lida`);
+        o.lido_em = new Date().toISOString();
+        this.desenharOcorrencias();
+      } catch {}
     }
   },
 
@@ -797,17 +870,22 @@ const Portal = {
         '<div class="vazio"><span class="ico">🎓</span><div class="titulo">Turma sem alunos</div></div>'}`;
   },
 
-  // ── Mensagens ───────────────────────────────────────────────
+  // ── Mensagens (lista estilo caixa de entrada) ────────────────
   async renderMensagens() {
     const alvo = document.getElementById('mensagensConteudo');
     alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
 
-    let lista;
-    try { lista = await Api.get('/api/portal/mensagens'); }
+    try { this._mensagens = await Api.get('/api/portal/mensagens'); }
     catch (e) {
       alvo.innerHTML = `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
       return;
     }
+    this.desenharMensagens();
+  },
+
+  desenharMensagens() {
+    const alvo = document.getElementById('mensagensConteudo');
+    const lista = this._mensagens || [];
 
     if (!lista.length) {
       alvo.innerHTML = `<div class="vazio"><span class="ico">✉️</span>
@@ -821,43 +899,57 @@ const Portal = {
     alvo.innerHTML = `
       ${pendentes ? `<div class="ola" style="background:var(--gold-soft);border-color:var(--gold)">
         <h2>${pendentes} comunicado(s) aguardando ciência</h2>
-        <p>Leia e toque em "Estou ciente" para confirmar à escola.</p>
+        <p>Toque para abrir e confirme com "Estou ciente".</p>
       </div>` : ''}
-      ${lista.map(m => this.cartaoMensagem(m)).join('')}`;
-
-    // Marca como lidas as que ainda não tinham sido abertas
-    const naoLidas = lista.filter(m => !m.lido_em);
-    for (const m of naoLidas) {
-      try { await Api.post(`/api/portal/mensagens/${m.id}/lida`); } catch {}
-    }
-    if (naoLidas.length) this.atualizarSelo();
+      ${lista.map(m => this.linhaMensagem(m)).join('')}`;
   },
 
-  cartaoMensagem(m) {
-    const pendente = m.exige_ciencia && !m.ciente_em;
-    const nova = !m.lido_em;
-    const classe = pendente ? 'pendente' : (nova ? 'nova' : '');
+  /** Uma linha da caixa de entrada — toque abre o detalhe completo. */
+  linhaMensagem(m) {
+    const pendenteCiencia = m.exige_ciencia && !m.ciente_em;
+    const naoLida = !m.lido_em;
 
     return `
-      <div class="cartao msg-card ${classe}">
-        <div class="msg-topo">
+      <div class="cartao toque lista-linha ${naoLida ? 'nao-lida' : ''}" onclick="Portal.abrirMensagem(${m.id})">
+        <div class="aluno-linha">
+          <div class="aluno-av" style="${pendenteCiencia ? 'background:rgba(255,94,94,.15);color:var(--red)' : ''}">✉️</div>
           <div style="flex:1;min-width:0">
-            <div class="msg-titulo">${escapar(m.titulo)}</div>
-            <div class="msg-meta">
-              ${dataHoraBR(m.criado_em)} · ${escapar(m.criado_nome || 'Secretaria')}
-              ${m.aluno_nome ? ' · ' + escapar(m.aluno_nome) : ''}
+            <div class="aluno-nome" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapar(m.titulo)}</div>
+            <div class="aluno-info">
+              ${dataHoraBR(m.criado_em)} · ${escapar(m.criado_nome || 'Secretaria')}${m.aluno_nome ? ' · ' + escapar(m.aluno_nome) : ''}
             </div>
           </div>
-          ${nova ? '<span class="badge badge-gold">nova</span>' : ''}
+          ${pendenteCiencia ? '<span class="badge badge-red">ciência</span>'
+            : naoLida ? '<span class="badge badge-gold">nova</span>' : ''}
+          <span class="seta">›</span>
         </div>
-
-        <div class="msg-texto">${escapar(m.conteudo)}</div>
-
-        ${m.exige_ciencia ? (m.ciente_em
-          ? `<button class="btn-ciente" disabled>✅ Ciência registrada em ${dataHoraBR(m.ciente_em)}</button>`
-          : `<button class="btn-ciente" onclick="Portal.darCiencia(${m.id}, this)">Estou ciente</button>`)
-          : ''}
       </div>`;
+  },
+
+  /** Abre o detalhe da mensagem em modal e marca como lida na hora. */
+  async abrirMensagem(id) {
+    const m = (this._mensagens || []).find(x => x.id === id);
+    if (!m) return;
+
+    document.getElementById('msgAppTitulo').textContent = m.titulo;
+    document.getElementById('msgAppSub').textContent =
+      `${dataHoraBR(m.criado_em)} · ${m.criado_nome || 'Secretaria'}${m.aluno_nome ? ' · ' + m.aluno_nome : ''}`;
+    document.getElementById('msgAppCorpo').innerHTML = `
+      <div class="msg-texto" style="margin-top:0">${escapar(m.conteudo)}</div>
+      ${m.exige_ciencia ? (m.ciente_em
+        ? `<button class="btn-ciente" disabled>✅ Ciência registrada em ${dataHoraBR(m.ciente_em)}</button>`
+        : `<button class="btn-ciente" onclick="Portal.darCiencia(${m.id}, this)">Estou ciente</button>`)
+        : ''}`;
+    abrirModal('modalMensagemApp');
+
+    if (!m.lido_em) {
+      try {
+        await Api.post(`/api/portal/mensagens/${id}/lida`);
+        m.lido_em = new Date().toISOString();
+        this.desenharMensagens();
+        this.atualizarSelo();
+      } catch {}
+    }
   },
 
   async darCiencia(id, botao) {
@@ -866,10 +958,12 @@ const Portal = {
     try {
       const r = await Api.post(`/api/portal/mensagens/${id}/ciente`);
       botao.textContent = `✅ Ciência registrada em ${dataHoraBR(r.ciente_em)}`;
-      botao.closest('.msg-card').classList.remove('pendente');
+      const m = (this._mensagens || []).find(x => x.id === id);
+      if (m) { m.ciente_em = r.ciente_em; m.lido_em = m.lido_em || r.ciente_em; }
       toast('Ciência registrada. Obrigado!');
       this.atualizarSelo();
       this.carregarInicio();
+      this.desenharMensagens();
     } catch (e) {
       botao.disabled = false;
       botao.textContent = 'Estou ciente';

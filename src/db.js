@@ -331,6 +331,16 @@ CREATE TABLE IF NOT EXISTS ocorrencia_ciencias (
 );
 CREATE INDEX IF NOT EXISTS idx_ocorr_cienc ON ocorrencia_ciencias (ocorrencia_id);
 
+-- ── Leituras de ocorrências (responsável abriu no app) ─────────
+CREATE TABLE IF NOT EXISTS ocorrencia_leituras (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  ocorrencia_id   INTEGER NOT NULL REFERENCES ocorrencias(id) ON DELETE CASCADE,
+  responsavel_id  INTEGER NOT NULL REFERENCES responsaveis(id) ON DELETE CASCADE,
+  lido_em         TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(ocorrencia_id, responsavel_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ocorr_leit ON ocorrencia_leituras (ocorrencia_id);
+
 -- ── Mensageria (escola → responsáveis) ────────────────────────
 CREATE TABLE IF NOT EXISTS mensagens (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,

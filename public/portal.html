@@ -140,13 +140,10 @@
     }
     .selo.mostrar { display: block; animation: pulsar 2s ease-in-out 3; }
 
-    /* ── Cartão de mensagem ────────────────────────────── */
-    .msg-card { border-left: 3px solid var(--border); }
-    .msg-card.nova { border-left-color: var(--gold); background: var(--gold-soft); }
-    .msg-card.pendente { border-left-color: var(--red); }
-    .msg-topo { display: flex; align-items: flex-start; gap: 10px; }
-    .msg-titulo { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
-    .msg-meta { font-size: 11px; color: var(--txt3); margin-top: 3px; }
+    /* ── Lista estilo caixa de entrada (mensagens/ocorrências) ─ */
+    .lista-linha { border-left: 3px solid var(--border); }
+    .lista-linha.nao-lida { border-left-color: var(--gold); background: var(--gold-soft); }
+    .lista-linha:not(.nao-lida) .aluno-nome { font-weight: 500; color: var(--txt2); }
     .msg-texto { font-size: 13px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
     .btn-ciente {
       width: 100%; margin-top: 13px;
@@ -215,7 +212,7 @@
     <div id="financeiroConteudo"></div>
   </section>
 
-  <!-- Histórico de ocorrências — responsável -->
+  <!-- Ocorrências — responsável -->
   <section class="tela" id="tela-ocorrencias">
     <div id="ocorrenciasConteudo"></div>
   </section>
@@ -228,7 +225,7 @@
   </button>
   <button data-tela="consulta" id="btnConsulta"><span class="ico">🔎</span> <span id="rotuloConsulta">Consultar</span></button>
   <button data-tela="financeiro" id="btnFinanceiro" style="display:none"><span class="ico" style="position:relative">💰<span class="selo" id="seloFinanceiro">0</span></span> Financeiro</button>
-  <button data-tela="ocorrencias" id="btnOcorrencias" style="display:none"><span class="ico" style="position:relative">📌<span class="selo" id="seloOcorrencias">0</span></span> Histórico</button>
+  <button data-tela="ocorrencias" id="btnOcorrencias" style="display:none"><span class="ico" style="position:relative">📌<span class="selo" id="seloOcorrencias">0</span></span> Ocorrências</button>
   <button data-tela="conta"><span class="ico">👤</span> Conta</button>
 </nav>
 
@@ -248,6 +245,28 @@
       <button class="btn btn-ghost" onclick="fecharModal('modalSenhaApp')">Cancelar</button>
       <button class="btn btn-primary" onclick="Portal.salvarSenha()">🔑 Trocar</button>
     </div>
+  </div>
+</div>
+
+<!-- Detalhe de mensagem -->
+<div class="modal-overlay" id="modalMensagemApp">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div><h3 id="msgAppTitulo">Mensagem</h3><div class="sub" id="msgAppSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalMensagemApp')">✕</button>
+    </div>
+    <div class="modal-body" id="msgAppCorpo"></div>
+  </div>
+</div>
+
+<!-- Detalhe de ocorrência -->
+<div class="modal-overlay" id="modalOcorrenciaApp">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div><h3 id="ocorrAppTitulo">Ocorrência</h3><div class="sub" id="ocorrAppSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalOcorrenciaApp')">✕</button>
+    </div>
+    <div class="modal-body" id="ocorrAppCorpo"></div>
   </div>
 </div>
 
