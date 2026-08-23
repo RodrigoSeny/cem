@@ -88,6 +88,17 @@
 .nav-submenu-item.active { color: var(--gold-lt); background: var(--gold-soft); }
 .nav-submenu-item .ico { font-size: 13px; width: 16px; text-align: center; }
 
+/* Subdivisão dentro de um submenu (ex.: Recebimentos, dentro de Financeiro) */
+.nav-submenu-item.has-submenu { padding-right: 26px; }
+.nav-submenu-item.has-submenu::after {
+  content: '›'; position: absolute; right: 12px;
+  font-size: 14px; font-weight: 700; color: var(--txt3);
+  transition: transform .2s;
+}
+.nav-submenu-item.has-submenu.aberto::after { transform: rotate(90deg); }
+.nav-submenu.nivel2 .nav-submenu-item { padding-left: 50px; font-size: 12px; }
+.nav-submenu.nivel2 .nav-submenu-item::before { left: 35px; }
+
 .nav-footer { padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .nav-user {
   background: var(--card); border: 1px solid var(--border);
@@ -322,6 +333,8 @@
 }
 .form-input::placeholder { color: var(--txt3); }
 .form-input:disabled, .form-select:disabled { opacity: .6; cursor: not-allowed; }
+.form-input.invalido { border-color: var(--red); }
+.form-input.invalido:focus { box-shadow: 0 0 0 3px rgba(255,94,94,.18); }
 .form-textarea { min-height: 82px; resize: vertical; }
 .form-select {
   cursor: pointer; appearance: none; padding-right: 34px;

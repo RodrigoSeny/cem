@@ -7,6 +7,7 @@ const Alunos = {
   editandoId: null,
   vinculos: [],        // responsáveis do aluno em edição
   editandoVinculo: null,
+  autorizados: [],     // pessoas autorizadas a retirar o aluno em edição
 
   filtrosAtuais() {
     return {
@@ -78,6 +79,7 @@ const Alunos = {
   async abrirNovo() {
     this.editandoId = null;
     this.vinculos = [];
+    this.autorizados = [];
     limparFormulario('formAluno');
 
     document.getElementById('modalAlunoTitulo').textContent = 'Novo aluno';
@@ -97,6 +99,7 @@ const Alunos = {
     this.montarSelects();
     this.trocarNacionalidade();
     this.renderVinculos();
+    this.renderAutorizados();
     this.renderAnexos();
     this.primeiraAba();
     abrirModal('modalAluno');
@@ -113,6 +116,7 @@ const Alunos = {
       parentesco: r.parentesco, tipo_vinculo: r.tipo_vinculo,
       principal: r.principal, autorizado_retirar: r.autorizado_retirar,
     }));
+    this.autorizados = a.autorizados || [];
 
     limparFormulario('formAluno');
     preencherFormulario('formAluno', a);
@@ -129,6 +133,7 @@ const Alunos = {
     document.getElementById('formAluno').querySelector('[data-campo=turma_id]').value = a.turma_id || '';
     this.trocarNacionalidade();
     this.renderVinculos();
+    this.renderAutorizados();
     this.renderAnexos();
     this.primeiraAba();
     abrirModal('modalAluno');
@@ -383,6 +388,91 @@ const Alunos = {
       </tr>`).join('');
   },
 
+  // ── Pessoas autorizadas a retirar o aluno (sem cadastro de responsável) ──
+  renderAutorizados() {
+    const alvo = document.getElementById('alunoAutorizados');
+    if (!this.editandoId) {
+      alvo.innerHTML = `<div class="form-hint">Salve o aluno primeiro — depois será possível cadastrar quem
+        mais os pais autorizam a retirá-lo (avós, parentes, vizinhos, motorista escolar etc.).</div>`;
+      return;
+    }
+
+    alvo.innerHTML = `
+      <div class="filtros" style="margin-bottom:12px">
+        <div class="campo busca"><label>Nome</label><input class="form-input" id="autNome"></div>
+        <div class="campo"><label>CPF</label><input class="form-input" id="autCpf" data-mascara="cpf"></div>
+        <div class="campo"><label>Parentesco</label><input class="form-input" id="autParentesco" placeholder="Ex.: avó, tio, motorista"></div>
+        <div class="campo"><label>Telefone</label><input class="form-input" id="autTelefone" data-mascara="telefone"></div>
+        <button class="btn btn-ghost" onclick="Alunos.adicionarAutorizado()">＋ Adicionar</button>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela">
+          <thead><tr><th>Nome</th><th>CPF</th><th>Parentesco</th><th>Telefone</th><th class="acoes">Ações</th></tr></thead>
+          <tbody id="autCorpo"></tbody>
+        </table>
+      </div>`;
+
+    aplicarMascaras(alvo);
+    this.renderAutorizadosTabela();
+  },
+
+  renderAutorizadosTabela() {
+    const corpo = document.getElementById('autCorpo');
+    if (!corpo) return;
+
+    if (!this.autorizados.length) {
+      corpo.innerHTML = `<tr><td colspan="5"><div class="vazio" style="padding:20px">
+        <span class="ico">🔑</span><div class="titulo">Ninguém cadastrado</div>
+        <div class="sub">Cadastre quem mais os pais autorizam a retirar o aluno.</div></div></td></tr>`;
+      return;
+    }
+
+    corpo.innerHTML = this.autorizados.map(a => `
+      <tr>
+        <td style="font-weight:600">${escapar(a.nome)}</td>
+        <td class="mono" style="font-size:12px">${a.cpf ? cpfBR(a.cpf) : '—'}</td>
+        <td>${a.parentesco ? escapar(a.parentesco) : '<span class="c-txt3">não informado</span>'}</td>
+        <td style="font-size:12.5px">${a.telefone ? telefoneBR(a.telefone) : '—'}</td>
+        <td class="acoes">
+          <button class="btn-ico perigo" onclick="Alunos.removerAutorizado(${a.id})" title="Remover">🗑️</button>
+        </td>
+      </tr>`).join('');
+  },
+
+  async adicionarAutorizado() {
+    const nome = document.getElementById('autNome').value.trim();
+    const cpf = document.getElementById('autCpf').value.trim();
+    const parentesco = document.getElementById('autParentesco').value.trim();
+    const telefone = document.getElementById('autTelefone').value.trim();
+
+    if (!nome) return toast('Informe o nome.', 'aviso');
+    if (cpf && !cpfValido(cpf)) return toastErro('CPF inválido.');
+
+    try {
+      const r = await Api.post(`/api/alunos/${this.editandoId}/autorizados`, { nome, cpf, parentesco, telefone });
+      this.autorizados.push({ id: r.id, nome, cpf, parentesco, telefone, ativo: 1 });
+      this.renderAutorizadosTabela();
+      ['autNome', 'autCpf', 'autParentesco', 'autTelefone'].forEach(id => document.getElementById(id).value = '');
+      toast('Pessoa autorizada cadastrada.');
+    } catch (e) { toastErro(e.message); }
+  },
+
+  async removerAutorizado(id) {
+    const a = this.autorizados.find(x => x.id === id);
+    const ok = await confirmar(
+      `Remover a autorização de retirada de ${a ? a.nome : 'esta pessoa'}?`,
+      { titulo: 'Remover autorizado', textoOk: 'Remover' }
+    );
+    if (!ok) return;
+
+    try {
+      await Api.excluir(`/api/alunos/${this.editandoId}/autorizados/${id}`);
+      this.autorizados = this.autorizados.filter(x => x.id !== id);
+      this.renderAutorizadosTabela();
+      toast('Autorização removida.');
+    } catch (e) { toastErro(e.message); }
+  },
+
   // ── Documentos digitalizados ───────────────────────────────
   renderAnexos() {
     const alvo = document.getElementById('alunoAnexos');
@@ -399,6 +489,11 @@ const Alunos = {
     const dados = lerFormulario('formAluno');
     if (!dados.nome) {
       toastErro('Informe o nome do aluno.');
+      this.irParaAba('al-dados');
+      return;
+    }
+    if (dados.cpf && !cpfValido(dados.cpf)) {
+      toastErro('CPF inválido.');
       this.irParaAba('al-dados');
       return;
     }

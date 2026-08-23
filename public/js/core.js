@@ -518,6 +518,20 @@ function limparFormulario(container) {
   });
 }
 
+/** Dígitos verificadores do CPF (algoritmo oficial da Receita Federal). */
+function cpfValido(cpf) {
+  const v = String(cpf || '').replace(/\D/g, '');
+  if (v.length !== 11 || /^(\d)\1{10}$/.test(v)) return false;
+
+  const digito = tamanho => {
+    let soma = 0;
+    for (let i = 0; i < tamanho; i++) soma += Number(v[i]) * (tamanho + 1 - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  return digito(9) === Number(v[9]) && digito(10) === Number(v[10]);
+}
+
 /** Máscaras simples aplicadas conforme o atributo data-mascara. */
 function aplicarMascaras(raiz = document) {
   raiz.querySelectorAll('[data-mascara]').forEach(el => {
@@ -531,6 +545,7 @@ function aplicarMascaras(raiz = document) {
           .replace(/(\d{3})(\d)/, '$1.$2')
           .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
           .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+        el.classList.remove('invalido');
       } else if (tipo === 'telefone') {
         v = v.slice(0, 11);
         v = v.length > 10
@@ -548,6 +563,14 @@ function aplicarMascaras(raiz = document) {
       }
       el.value = v;
     });
+
+    if (el.dataset.mascara === 'cpf') {
+      el.addEventListener('blur', () => {
+        const valido = !el.value || cpfValido(el.value);
+        el.classList.toggle('invalido', !valido);
+        if (!valido) toastErro('CPF inválido.');
+      });
+    }
   });
 }
 

@@ -78,10 +78,16 @@ const Cache = {
 // ─────────────────────────────────────────────────────────────
 let paginaAtual = 'home';
 
-function irPara(pagina) {
+function irPara(pagina, aba) {
   const meta = PAGINAS_APP.find(p => p.id === pagina);
   if (meta && !Sessao.pode(meta.permissao)) {
     return toast('Seu perfil não tem acesso a este módulo.', 'aviso');
+  }
+
+  // Chegando em Recebimentos sem uma aba específica (atalho, "voltar" etc.),
+  // mantém a aba que já estava aberta em vez de perder a marcação do menu.
+  if (pagina === 'fin-recebimentos' && !aba) {
+    aba = document.querySelector('#finAbasRecebimento .aba.active')?.dataset.recaba || 'mensalidades';
   }
 
   document.querySelectorAll('.pagina').forEach(el => el.classList.remove('active'));
@@ -91,13 +97,11 @@ function irPara(pagina) {
 
   document.querySelectorAll('.nav-item, .nav-submenu-item').forEach(el => el.classList.remove('active'));
   document.querySelectorAll(`[data-pagina="${pagina}"]`).forEach(el => {
+    // Vários itens podem apontar para a mesma página (ex.: as subdivisões
+    // de Recebimentos) — o data-aba decide qual deles fica marcado.
+    if (el.dataset.aba && el.dataset.aba !== aba) return;
     el.classList.add('active');
-    // Abre o submenu que contém o item
-    const submenu = el.closest('.nav-submenu');
-    if (submenu && !submenu.classList.contains('aberto')) {
-      submenu.classList.add('aberto');
-      submenu.previousElementSibling?.classList.add('aberto');
-    }
+    abrirSubmenusAncestrais(el);
   });
 
   paginaAtual = pagina;
@@ -105,15 +109,48 @@ function irPara(pagina) {
   document.getElementById('main').scrollTop = 0;
   if (window.innerWidth <= 860) fecharMenuMobile();
 
-  const carregar = Carregadores[pagina];
-  if (carregar) carregar();
+  if (pagina === 'fin-recebimentos') {
+    Financeiro.abrirAbaRecebimento(aba);
+  } else {
+    const carregar = Carregadores[pagina];
+    if (carregar) carregar();
+  }
+}
+
+/** Fecha os demais grupos abertos no mesmo nível de `el` (menu em acordeão). */
+function comprimirSubmenusIrmaos(el) {
+  if (!el.parentElement) return;
+  [...el.parentElement.children].forEach(irmao => {
+    if (irmao !== el && irmao.classList.contains('has-submenu')) {
+      irmao.classList.remove('aberto');
+      irmao.nextElementSibling?.classList.remove('aberto');
+    }
+  });
+}
+
+/** Abre todos os submenus (e subdivisões) que contêm o item, comprimindo os demais. */
+function abrirSubmenusAncestrais(el) {
+  let no = el.parentElement;
+  while (no) {
+    if (no.classList && no.classList.contains('nav-submenu') && !no.classList.contains('aberto')) {
+      const cabecalho = no.previousElementSibling;
+      if (cabecalho) comprimirSubmenusIrmaos(cabecalho);
+      no.classList.add('aberto');
+      cabecalho?.classList.add('aberto');
+    }
+    no = no.parentElement;
+  }
 }
 
 function alternarSubmenu(el) {
   const submenu = el.nextElementSibling;
   if (!submenu || !submenu.classList.contains('nav-submenu')) return;
-  el.classList.toggle('aberto');
-  submenu.classList.toggle('aberto');
+
+  const abrindo = !submenu.classList.contains('aberto');
+  if (abrindo) comprimirSubmenusIrmaos(el);
+
+  el.classList.toggle('aberto', abrindo);
+  submenu.classList.toggle('aberto', abrindo);
 }
 
 function alternarMenu() {
@@ -275,8 +312,10 @@ function aplicarPermissoes() {
     if (meta && !Sessao.pode(meta.permissao)) el.classList.add('oculto');
   });
 
-  // Esconde cabeçalho de submenu que ficou sem itens visíveis
-  document.querySelectorAll('.nav-submenu').forEach(sub => {
+  // Esconde cabeçalho de submenu que ficou sem itens visíveis. Processa do
+  // mais aninhado para o mais externo, para uma subdivisão vazia (ex.:
+  // Recebimentos sem nenhuma aba liberada) já refletir no submenu que a contém.
+  [...document.querySelectorAll('.nav-submenu')].reverse().forEach(sub => {
     const visiveis = [...sub.children].filter(c => !c.classList.contains('oculto'));
     if (!visiveis.length) {
       sub.classList.add('oculto');
@@ -316,7 +355,7 @@ async function iniciar() {
 
   // Cliques do menu
   document.querySelectorAll('[data-pagina]').forEach(el => {
-    el.addEventListener('click', () => irPara(el.dataset.pagina));
+    el.addEventListener('click', () => irPara(el.dataset.pagina, el.dataset.aba));
   });
 
   aplicarPermissoes();

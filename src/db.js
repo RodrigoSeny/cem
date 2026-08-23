@@ -215,6 +215,22 @@ CREATE TABLE IF NOT EXISTS aluno_responsaveis (
   UNIQUE (aluno_id, responsavel_id)
 );
 
+-- ── Pessoas autorizadas pelos responsáveis a retirar o aluno,      ──
+-- ── mesmo sem ter cadastro próprio de responsável (avós, vizinhos, ──
+-- ── motoristas etc.) ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS aluno_autorizados_retirada (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  aluno_id      INTEGER NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  nome          TEXT NOT NULL,
+  cpf           TEXT,
+  parentesco    TEXT,
+  telefone      TEXT,
+  observacoes   TEXT,
+  ativo         INTEGER NOT NULL DEFAULT 1,
+  criado_em     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_aut_retirada_aluno ON aluno_autorizados_retirada (aluno_id);
+
 -- ── Usuários do sistema (funcionários) e do portal (responsáveis) ──
 CREATE TABLE IF NOT EXISTS usuarios (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,

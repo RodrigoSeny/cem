@@ -74,7 +74,14 @@
       <div class="nav-submenu">
         <div class="nav-submenu-item" data-pagina="fin-painel"><span class="ico">📊</span> Painel</div>
         <div class="nav-submenu-item" data-pagina="fin-cadastros"><span class="ico">🗂️</span> Cadastros</div>
-        <div class="nav-submenu-item" data-pagina="fin-recebimentos"><span class="ico">💵</span> Recebimentos</div>
+
+        <div class="nav-submenu-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">💵</span> Recebimentos</div>
+        <div class="nav-submenu nivel2">
+          <div class="nav-submenu-item nivel2" data-pagina="fin-recebimentos" data-aba="mensalidades"><span class="ico">🧾</span> Mensalidades</div>
+          <div class="nav-submenu-item nivel2" data-pagina="fin-recebimentos" data-aba="movimento"><span class="ico">📆</span> Movimento mensal</div>
+          <div class="nav-submenu-item nivel2" data-pagina="fin-recebimentos" data-aba="planilha"><span class="ico">📋</span> Planilha de cobrança</div>
+        </div>
+
         <div class="nav-submenu-item" data-pagina="fin-pagamentos"><span class="ico">💳</span> Pagamentos</div>
         <div class="nav-submenu-item" data-pagina="fin-banco"><span class="ico">🏦</span> Contas Bancárias</div>
         <div class="nav-submenu-item" data-pagina="fin-conciliacao"><span class="ico">🔗</span> Conciliação Bancária</div>
@@ -574,9 +581,9 @@
                 <option value="todas">Todas</option>
               </select>
             </div>
-            <button class="btn btn-ghost" onclick="Financeiro.carregarPlanilha()">🔄 Montar</button>
+            <button class="btn btn-primary" onclick="Financeiro.carregarPlanilha()">🔄 Montar</button>
             <button class="btn btn-ghost" onclick="Financeiro.planilhaCsv()">⬇️ CSV</button>
-            <button class="btn btn-primary" onclick="Financeiro.imprimirPlanilha()">🖨️ Imprimir</button>
+            <button class="btn btn-ghost" onclick="Financeiro.imprimirPlanilha()">🖨️ Imprimir</button>
           </div>
           <div class="form-hint mt-3">
             Lista para levar ao banco: responsável financeiro, CPF, contato, alunos e o valor de cada um.
@@ -1065,6 +1072,14 @@
               <tbody id="vincCorpo"></tbody>
             </table>
           </div>
+
+          <div class="secao-titulo mt-4">Pessoas autorizadas a retirar o aluno</div>
+          <div class="form-hint mb-3">
+            Além dos responsáveis vinculados acima (coluna "Retirar"), liste aqui quem mais os pais
+            autorizam a buscar o aluno — avós, parentes, vizinhos, motorista escolar etc. Não precisam
+            ter cadastro de responsável.
+          </div>
+          <div id="alunoAutorizados"></div>
         </div>
       </div>
     </div>

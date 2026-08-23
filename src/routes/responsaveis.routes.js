@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 const express = require('express');
 const { db, log, agora } = require('../db');
-const { filtrarCampos, montarInsert, montarUpdate, soNumeros, bool01, rota } = require('../util');
+const { filtrarCampos, montarInsert, montarUpdate, soNumeros, bool01, cpfValido, rota } = require('../util');
 
 const router = express.Router();
 
@@ -23,6 +23,7 @@ const ENDERECO_OBRIGATORIO = ['cep', 'logradouro', 'numero', 'bairro', 'cidade',
 
 function validarCpfEndereco(d) {
   if (!d.cpf) return 'Informe o CPF do responsável.';
+  if (!cpfValido(d.cpf)) return 'CPF inválido.';
   if (ENDERECO_OBRIGATORIO.some(campo => !d[campo])) return 'Preencha o endereço completo do responsável.';
   return null;
 }

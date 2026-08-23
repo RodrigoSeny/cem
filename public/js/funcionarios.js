@@ -127,6 +127,11 @@ const Funcionarios = {
       document.querySelector('.aba[data-aba=fn-func]').click();
       return;
     }
+    if (dados.cpf && !cpfValido(dados.cpf)) {
+      toastErro('CPF inválido.');
+      document.querySelector('.aba[data-aba=fn-dados]').click();
+      return;
+    }
 
     try {
       if (this.editandoId) {

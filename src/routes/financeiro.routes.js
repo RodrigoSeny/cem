@@ -289,7 +289,7 @@ router.get('/mensalidades', rota((req, res) => {
   if (situacao === 'vencida') { cond.push(`m.status = 'aberta' AND m.vencimento < ?`); par.push(hoje()); }
 
   const where = cond.length ? ` WHERE ${cond.join(' AND ')}` : '';
-  const linhas = db.prepare(`${SELECT_MENS}${where} ORDER BY m.vencimento, a.nome LIMIT 1000`).all(...par);
+  const linhas = db.prepare(`${SELECT_MENS}${where} ORDER BY a.nome, m.vencimento LIMIT 1000`).all(...par);
   res.json(linhas.map(enriquecer));
 }));
 

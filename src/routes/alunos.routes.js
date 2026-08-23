@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 const express = require('express');
 const { db, log, agora } = require('../db');
-const { filtrarCampos, montarInsert, montarUpdate, soNumeros, bool01, rota, idade } = require('../util');
+const { filtrarCampos, montarInsert, montarUpdate, soNumeros, bool01, cpfValido, rota, idade } = require('../util');
 
 const router = express.Router();
 
@@ -96,6 +96,13 @@ router.get('/:id', rota((req, res) => {
      ORDER BY ar.principal DESC, r.nome
   `).all(a.id);
 
+  a.autorizados = db.prepare(`
+    SELECT id, nome, cpf, parentesco, telefone, observacoes, ativo
+      FROM aluno_autorizados_retirada
+     WHERE aluno_id = ?
+     ORDER BY ativo DESC, nome
+  `).all(a.id);
+
   res.json(a);
 }));
 
@@ -103,6 +110,7 @@ router.get('/:id', rota((req, res) => {
 router.post('/', rota((req, res) => {
   const d = preparar(req.body);
   if (!d.nome) return res.status(400).json({ error: 'O nome do aluno é obrigatório.' });
+  if (d.cpf && !cpfValido(d.cpf)) return res.status(400).json({ error: 'CPF inválido.' });
   if (!d.matricula) d.matricula = proximaMatricula();
   if (!d.ano_letivo) d.ano_letivo = new Date().getFullYear();
   if (!d.data_matricula) d.data_matricula = new Date().toISOString().slice(0, 10);
@@ -126,6 +134,7 @@ router.put('/:id', rota((req, res) => {
 
   const d = preparar(req.body);
   if ('nome' in d && !d.nome) return res.status(400).json({ error: 'O nome do aluno é obrigatório.' });
+  if (d.cpf && !cpfValido(d.cpf)) return res.status(400).json({ error: 'CPF inválido.' });
   d.atualizado_em = agora();
 
   const { sql, valores } = montarUpdate('alunos', d, id);
@@ -187,6 +196,62 @@ router.delete('/:id/responsaveis/:respId', rota((req, res) => {
   db.prepare('DELETE FROM aluno_responsaveis WHERE aluno_id = ? AND responsavel_id = ?')
     .run(Number(req.params.id), Number(req.params.respId));
   log(req, 'desvincular', 'aluno_responsaveis', Number(req.params.id), `resp ${req.params.respId}`);
+  res.json({ ok: true });
+}));
+
+// ── Pessoas autorizadas a retirar o aluno (sem cadastro de responsável) ──
+
+// POST /api/alunos/:id/autorizados
+router.post('/:id/autorizados', rota((req, res) => {
+  const alunoId = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM alunos WHERE id = ?').get(alunoId)) {
+    return res.status(404).json({ error: 'Aluno não encontrado.' });
+  }
+
+  const d = filtrarCampos(req.body, ['nome', 'cpf', 'parentesco', 'telefone', 'observacoes']);
+  if (!d.nome) return res.status(400).json({ error: 'Informe o nome da pessoa autorizada.' });
+  if (d.cpf) {
+    d.cpf = soNumeros(d.cpf);
+    if (!cpfValido(d.cpf)) return res.status(400).json({ error: 'CPF inválido.' });
+  }
+  d.aluno_id = alunoId;
+  d.ativo = 1;
+  d.criado_em = agora();
+
+  const { sql, valores } = montarInsert('aluno_autorizados_retirada', d);
+  const info = db.prepare(sql).run(...valores);
+
+  log(req, 'criar', 'aluno_autorizados_retirada', info.lastInsertRowid, `aluno ${alunoId} · ${d.nome}`);
+  res.status(201).json({ id: info.lastInsertRowid });
+}));
+
+// PUT /api/alunos/:id/autorizados/:autId
+router.put('/:id/autorizados/:autId', rota((req, res) => {
+  const autId = Number(req.params.autId);
+  const atual = db.prepare('SELECT * FROM aluno_autorizados_retirada WHERE id = ? AND aluno_id = ?')
+    .get(autId, Number(req.params.id));
+  if (!atual) return res.status(404).json({ error: 'Autorização não encontrada.' });
+
+  const d = filtrarCampos(req.body, ['nome', 'cpf', 'parentesco', 'telefone', 'observacoes', 'ativo']);
+  if ('nome' in d && !d.nome) return res.status(400).json({ error: 'Informe o nome da pessoa autorizada.' });
+  if ('cpf' in d && d.cpf) {
+    d.cpf = soNumeros(d.cpf);
+    if (!cpfValido(d.cpf)) return res.status(400).json({ error: 'CPF inválido.' });
+  }
+  if ('ativo' in d) d.ativo = bool01(d.ativo);
+
+  const { sql, valores } = montarUpdate('aluno_autorizados_retirada', d, autId);
+  db.prepare(sql).run(...valores);
+
+  log(req, 'atualizar', 'aluno_autorizados_retirada', autId, d.nome || null);
+  res.json({ ok: true });
+}));
+
+// DELETE /api/alunos/:id/autorizados/:autId
+router.delete('/:id/autorizados/:autId', rota((req, res) => {
+  db.prepare('DELETE FROM aluno_autorizados_retirada WHERE id = ? AND aluno_id = ?')
+    .run(Number(req.params.autId), Number(req.params.id));
+  log(req, 'excluir', 'aluno_autorizados_retirada', Number(req.params.autId), null);
   res.json({ ok: true });
 }));
 

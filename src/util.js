@@ -42,6 +42,20 @@ function bool01(v) {
   return (v === true || v === 1 || v === '1' || v === 'true' || v === 'on') ? 1 : 0;
 }
 
+/** Dígitos verificadores do CPF (algoritmo oficial da Receita Federal). */
+function cpfValido(cpf) {
+  const v = String(cpf || '').replace(/\D/g, '');
+  if (v.length !== 11 || /^(\d)\1{10}$/.test(v)) return false;
+
+  const digito = tamanho => {
+    let soma = 0;
+    for (let i = 0; i < tamanho; i++) soma += Number(v[i]) * (tamanho + 1 - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  return digito(9) === Number(v[9]) && digito(10) === Number(v[10]);
+}
+
 /** Traduz erros de constraint do SQLite em mensagens de usuário. */
 function tratarErro(e, res, contexto = {}) {
   const msg = String(e && e.message || e);
@@ -88,5 +102,5 @@ function idade(dataNasc) {
 
 module.exports = {
   filtrarCampos, montarInsert, montarUpdate,
-  soNumeros, bool01, tratarErro, rota, idade,
+  soNumeros, bool01, cpfValido, tratarErro, rota, idade,
 };

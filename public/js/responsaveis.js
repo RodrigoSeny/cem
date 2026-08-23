@@ -69,6 +69,7 @@ const Responsaveis = {
   async abrirNovo({ aoSalvar } = {}) {
     this.editandoId = null;
     this.aoSalvar = aoSalvar || null;
+    this.vinculoPendente = null;
 
     const endereco = aoSalvar ? null : await this.perguntarEnderecoDeAluno();
 
@@ -78,14 +79,16 @@ const Responsaveis = {
     this.atualizarEstadoWhatsapp();
 
     document.getElementById('modalRespTitulo').textContent = 'Novo responsável';
-    document.getElementById('modalRespSub').textContent = aoSalvar
+    document.getElementById('modalRespSub').textContent = aoSalvar || this.vinculoPendente
       ? 'Ao salvar, ele já será vinculado ao aluno.' : '';
     abrirModal('modalResponsavel');
   },
 
   /**
    * Fluxo de "já tem aluno cadastrado?" para quem entra pelo cadastro avulso
-   * de responsáveis. Devolve os campos de endereço a copiar, ou null.
+   * de responsáveis. Pergunta o aluno, o parentesco/vínculo (guardados em
+   * `this.vinculoPendente` para o vínculo ser criado ao salvar) e devolve os
+   * campos de endereço a copiar, ou null.
    */
   async perguntarEnderecoDeAluno() {
     const temAluno = await confirmar(
@@ -103,6 +106,11 @@ const Responsaveis = {
     let aluno;
     try { aluno = await Api.get('/api/alunos/' + alunoId); }
     catch (e) { toastErro(e.message); return null; }
+
+    const vinculo = await this.perguntarVinculo(aluno);
+    if (vinculo) {
+      this.vinculoPendente = { alunoId: aluno.id, alunoNome: aluno.nome, ...vinculo };
+    }
 
     const repetirDoAluno = await confirmar(
       `Repetir o endereço de ${nomeCurto(aluno.nome)} para este responsável?`,
@@ -127,6 +135,43 @@ const Responsaveis = {
     return distintos.find(r => String(r.id) === String(respId)) || null;
   },
 
+  /** Pergunta parentesco e tipo de vínculo com o aluno selecionado. */
+  perguntarVinculo(aluno) {
+    return new Promise(resolve => {
+      const el = document.createElement('div');
+      el.className = 'modal-overlay aberto';
+      el.innerHTML = `
+        <div class="modal" style="max-width:430px">
+          <div class="modal-head"><h3>Vínculo com ${escapar(nomeCurto(aluno.nome))}</h3></div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Parentesco</label>
+              <select class="form-select" id="_novoRespParentesco">${opcoesParentesco()}</select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Vínculo</label>
+              <select class="form-select" id="_novoRespTipo">
+                ${Object.entries(TIPOS_VINCULO).map(([k, r]) => `<option value="${k}">${escapar(r)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost" data-acao="cancelar">Não vincular agora</button>
+            <button class="btn btn-primary" data-acao="ok">Confirmar</button>
+          </div>
+        </div>`;
+      document.body.appendChild(el);
+
+      const responder = v => { el.remove(); resolve(v); };
+      el.querySelector('[data-acao=ok]').onclick = () => responder({
+        parentesco: el.querySelector('#_novoRespParentesco').value || null,
+        tipo_vinculo: el.querySelector('#_novoRespTipo').value,
+      });
+      el.querySelector('[data-acao=cancelar]').onclick = () => responder(null);
+      el.onclick = e => { if (e.target === el) responder(null); };
+    });
+  },
+
   preencherEndereco(origem) {
     const form = document.getElementById('formResponsavel');
     for (const campo of ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado']) {
@@ -142,6 +187,7 @@ const Responsaveis = {
 
     this.editandoId = id;
     this.aoSalvar = aoSalvar || null;
+    this.vinculoPendente = null;
     limparFormulario('formResponsavel');
     preencherFormulario('formResponsavel', r);
     this.atualizarEstadoWhatsapp();
@@ -177,6 +223,7 @@ const Responsaveis = {
     const dados = lerFormulario('formResponsavel');
     if (!dados.nome) return toastErro('Informe o nome do responsável.');
     if (!dados.cpf) return toastErro('Informe o CPF do responsável.');
+    if (!cpfValido(dados.cpf)) return toastErro('CPF inválido.');
     const enderecoObrigatorio = ['cep', 'logradouro', 'numero', 'bairro', 'cidade', 'estado'];
     if (enderecoObrigatorio.some(campo => !dados[campo])) {
       return toastErro('Preencha o endereço completo do responsável.');
@@ -184,6 +231,7 @@ const Responsaveis = {
 
     try {
       let id = this.editandoId;
+      const novo = !id;
       if (id) {
         await Api.put('/api/responsaveis/' + id, dados);
         toast('Responsável atualizado.');
@@ -191,6 +239,18 @@ const Responsaveis = {
         const r = await Api.post('/api/responsaveis', dados);
         id = r.id;
         toast('Responsável cadastrado.');
+      }
+
+      // Vínculo pedido no fluxo de "já tem aluno cadastrado?"
+      const vinculo = this.vinculoPendente;
+      this.vinculoPendente = null;
+      if (novo && vinculo) {
+        try {
+          await Api.post(`/api/alunos/${vinculo.alunoId}/responsaveis`, {
+            responsavel_id: id, parentesco: vinculo.parentesco, tipo_vinculo: vinculo.tipo_vinculo,
+          });
+          toast(`Vinculado a ${nomeCurto(vinculo.alunoNome)}.`);
+        } catch (e) { toastErro(e.message); }
       }
 
       fecharModal('modalResponsavel');

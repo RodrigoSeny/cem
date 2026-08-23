@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 const express = require('express');
 const { db, log, agora } = require('../db');
-const { filtrarCampos, montarInsert, montarUpdate, soNumeros, bool01, rota, idade } = require('../util');
+const { filtrarCampos, montarInsert, montarUpdate, soNumeros, bool01, cpfValido, rota, idade } = require('../util');
 
 const router = express.Router();
 
@@ -91,6 +91,7 @@ router.post('/', rota((req, res) => {
   const d = preparar(req.body);
   if (!d.nome) return res.status(400).json({ error: 'O nome do funcionário é obrigatório.' });
   if (!d.cargo) return res.status(400).json({ error: 'Informe o cargo do funcionário.' });
+  if (d.cpf && !cpfValido(d.cpf)) return res.status(400).json({ error: 'CPF inválido.' });
   if (!d.matricula) d.matricula = proximaMatricula();
   d.criado_em = agora();
 
@@ -109,6 +110,7 @@ router.put('/:id', rota((req, res) => {
   }
   const d = preparar(req.body);
   if ('nome' in d && !d.nome) return res.status(400).json({ error: 'O nome do funcionário é obrigatório.' });
+  if (d.cpf && !cpfValido(d.cpf)) return res.status(400).json({ error: 'CPF inválido.' });
   d.atualizado_em = agora();
 
   const { sql, valores } = montarUpdate('funcionarios', d, id);
