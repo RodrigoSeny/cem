@@ -55,8 +55,10 @@ const SELECT_BASE = `
 router.get('/tipos', rota((req, res) => res.json(TIPOS)));
 
 // ── GET /api/ocorrencias ──────────────────────────────────────
+// Por padrão só mostra as ativas (não invalidadas) — passe situacao=todas
+// ou situacao=invalidadas para ver as demais.
 router.get('/', rota((req, res) => {
-  const { aluno_id, turma_id, tipo, gravidade, de, ate, visivel } = req.query;
+  const { aluno_id, turma_id, tipo, gravidade, de, ate, visivel, situacao } = req.query;
   const cond = [];
   const par = [];
 
@@ -67,6 +69,9 @@ router.get('/', rota((req, res) => {
   if (de) { cond.push('o.data_ocorrencia >= ?'); par.push(de); }
   if (ate) { cond.push('o.data_ocorrencia <= ?'); par.push(ate); }
   if (visivel === '1' || visivel === '0') { cond.push('o.visivel_responsavel = ?'); par.push(Number(visivel)); }
+
+  if (situacao === 'invalidadas') cond.push('o.invalidada_em IS NOT NULL');
+  else if (situacao !== 'todas') cond.push('o.invalidada_em IS NULL');
 
   const where = cond.length ? ` WHERE ${cond.join(' AND ')}` : '';
   res.json(db.prepare(`${SELECT_BASE}${where}
@@ -106,12 +111,25 @@ router.post('/', rota((req, res) => {
   res.status(201).json({ id: info.lastInsertRowid });
 }));
 
+/** A ocorrência já foi confirmada por pelo menos um responsável? */
+function temCiencia(ocorrenciaId) {
+  return !!db.prepare(
+    'SELECT 1 FROM ocorrencia_ciencias WHERE ocorrencia_id = ? LIMIT 1'
+  ).get(ocorrenciaId);
+}
+
 // ── PUT /api/ocorrencias/:id ──────────────────────────────────
 router.put('/:id', rota((req, res) => {
   const id = Number(req.params.id);
   if (!db.prepare('SELECT id FROM ocorrencias WHERE id = ?').get(id)) {
     return res.status(404).json({ error: 'Ocorrência não encontrada.' });
   }
+  if (temCiencia(id)) {
+    return res.status(409).json({
+      error: 'Esta ocorrência já foi confirmada por um responsável e não pode mais ser editada. Invalide-a, informando o motivo.',
+    });
+  }
+
   const d = preparar(req.body);
   d.atualizado_em = agora();
 
@@ -128,8 +146,34 @@ router.delete('/:id', rota((req, res) => {
   const o = db.prepare('SELECT titulo FROM ocorrencias WHERE id = ?').get(id);
   if (!o) return res.status(404).json({ error: 'Ocorrência não encontrada.' });
 
+  if (temCiencia(id)) {
+    return res.status(409).json({
+      error: 'Esta ocorrência já foi confirmada por um responsável e não pode mais ser excluída. Invalide-a, informando o motivo.',
+    });
+  }
+
   db.prepare('DELETE FROM ocorrencias WHERE id = ?').run(id);
   log(req, 'excluir', 'ocorrencias', id, o.titulo);
+  res.json({ ok: true });
+}));
+
+// ── POST /api/ocorrencias/:id/invalidar ───────────────────────
+// Não apaga a ocorrência: ela continua visível, só marcada como inválida
+// (com o motivo), para preservar o histórico do aluno.
+router.post('/:id/invalidar', rota((req, res) => {
+  const id = Number(req.params.id);
+  const o = db.prepare('SELECT titulo, invalidada_em FROM ocorrencias WHERE id = ?').get(id);
+  if (!o) return res.status(404).json({ error: 'Ocorrência não encontrada.' });
+  if (o.invalidada_em) return res.status(409).json({ error: 'Esta ocorrência já está invalidada.' });
+
+  const motivo = String(req.body.motivo || '').trim();
+  if (!motivo) return res.status(400).json({ error: 'Informe o motivo da invalidação.' });
+
+  db.prepare(`
+    UPDATE ocorrencias SET invalidada_em = ?, invalidada_motivo = ?, invalidada_por = ?
+     WHERE id = ?`).run(agora(), motivo, req.usuario?.id ?? null, id);
+
+  log(req, 'invalidar', 'ocorrencias', id, `${o.titulo} · ${motivo}`);
   res.json({ ok: true });
 }));
 

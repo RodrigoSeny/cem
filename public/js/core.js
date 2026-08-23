@@ -225,6 +225,43 @@ function selecionarOpcao(titulo, opcoes, { rotulo = 'Selecione', textoOk = 'Conf
   });
 }
 
+/** Pede um texto obrigatório em modal — usado para motivos de invalidação etc. */
+function pedirTexto(titulo, { rotulo = 'Motivo', textoOk = 'Confirmar', placeholder = '' } = {}) {
+  return new Promise(resolve => {
+    const id = 'modalTexto_' + Date.now();
+    const el = document.createElement('div');
+    el.className = 'modal-overlay aberto';
+    el.id = id;
+    el.innerHTML = `
+      <div class="modal" style="max-width:430px">
+        <div class="modal-head"><h3>${escapar(titulo)}</h3></div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">${escapar(rotulo)}</label>
+            <textarea class="form-textarea" data-texto placeholder="${escapar(placeholder)}" style="min-height:80px"></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-acao="cancelar">Cancelar</button>
+          <button class="btn btn-danger" data-acao="ok">${escapar(textoOk)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+
+    const campo = el.querySelector('[data-texto]');
+    setTimeout(() => campo.focus(), 0);
+
+    const responder = v => { el.remove(); resolve(v); };
+    el.querySelector('[data-acao=ok]').onclick = () => {
+      const v = campo.value.trim();
+      if (!v) return campo.classList.add('invalido');
+      responder(v);
+    };
+    el.querySelector('[data-acao=cancelar]').onclick = () => responder(null);
+    el.onclick = e => { if (e.target === el) responder(null); };
+  });
+}
+
 // ─────────────────────────────────────────────────────────────
 // FORMATAÇÃO
 // ─────────────────────────────────────────────────────────────

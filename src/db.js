@@ -301,7 +301,10 @@ CREATE TABLE IF NOT EXISTS ocorrencias (
   registrado_por       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
   registrado_nome      TEXT,
   criado_em            TEXT DEFAULT (datetime('now','localtime')),
-  atualizado_em        TEXT
+  atualizado_em        TEXT,
+  invalidada_em        TEXT,
+  invalidada_motivo    TEXT,
+  invalidada_por       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ocorr_aluno ON ocorrencias (aluno_id, data_ocorrencia);
 
@@ -327,7 +330,10 @@ CREATE TABLE IF NOT EXISTS mensagens (
   aluno_id       INTEGER REFERENCES alunos(id) ON DELETE SET NULL,
   criado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
   criado_nome    TEXT,
-  criado_em      TEXT DEFAULT (datetime('now','localtime'))
+  criado_em      TEXT DEFAULT (datetime('now','localtime')),
+  invalidada_em      TEXT,
+  invalidada_motivo  TEXT,
+  invalidada_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
 -- Uma linha por responsável que recebeu a mensagem (com o aluno de contexto)
@@ -664,6 +670,25 @@ function migrar() {
   if (!colunas('ocorrencias').includes('exige_ciencia')) {
     db.exec(`ALTER TABLE ocorrencias ADD COLUMN exige_ciencia INTEGER NOT NULL DEFAULT 0`);
     console.log('↗️  ocorrencias.exige_ciencia criada.');
+  }
+
+  // 5. Mensagens e ocorrências que já receberam ciência não podem mais ser
+  //    editadas/excluídas — só invalidadas, com motivo, permanecendo visíveis.
+  if (!colunas('mensagens').includes('invalidada_em')) {
+    db.exec(`
+      ALTER TABLE mensagens ADD COLUMN invalidada_em TEXT;
+      ALTER TABLE mensagens ADD COLUMN invalidada_motivo TEXT;
+      ALTER TABLE mensagens ADD COLUMN invalidada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+    `);
+    console.log('↗️  mensagens.invalidada_* criadas.');
+  }
+  if (!colunas('ocorrencias').includes('invalidada_em')) {
+    db.exec(`
+      ALTER TABLE ocorrencias ADD COLUMN invalidada_em TEXT;
+      ALTER TABLE ocorrencias ADD COLUMN invalidada_motivo TEXT;
+      ALTER TABLE ocorrencias ADD COLUMN invalidada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+    `);
+    console.log('↗️  ocorrencias.invalidada_* criadas.');
   }
 }
 

@@ -353,6 +353,13 @@ async function iniciar() {
     if (e.logo_url) document.getElementById('navLogo').src = e.logo_url;
   } catch {}
 
+  // Aviso de teste beta (some sozinho quando BETA sair do .env do servidor)
+  try {
+    const r = await Api.get('/api/sistema/beta');
+    window.SISTEMA_BETA = !!r.beta;
+    document.getElementById('avisoBeta').classList.toggle('oculto', !r.beta);
+  } catch { window.SISTEMA_BETA = false; }
+
   // Cliques do menu
   document.querySelectorAll('[data-pagina]').forEach(el => {
     el.addEventListener('click', () => irPara(el.dataset.pagina, el.dataset.aba));

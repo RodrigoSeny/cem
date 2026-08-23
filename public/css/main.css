@@ -45,6 +45,13 @@
   letter-spacing: .14em; text-transform: uppercase;
 }
 
+.beta-aviso {
+  text-align: center; font-weight: 800; letter-spacing: .12em;
+  font-size: 11px; color: var(--gold); background: var(--gold-soft);
+  border: 1px solid rgba(242,183,5,.35); border-radius: 7px;
+  margin: 10px 9px 0; padding: 5px 0;
+}
+
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 14px; margin: 1px 9px;
@@ -333,8 +340,8 @@
 }
 .form-input::placeholder { color: var(--txt3); }
 .form-input:disabled, .form-select:disabled { opacity: .6; cursor: not-allowed; }
-.form-input.invalido { border-color: var(--red); }
-.form-input.invalido:focus { box-shadow: 0 0 0 3px rgba(255,94,94,.18); }
+.form-input.invalido, .form-textarea.invalido { border-color: var(--red); }
+.form-input.invalido:focus, .form-textarea.invalido:focus { box-shadow: 0 0 0 3px rgba(255,94,94,.18); }
 .form-textarea { min-height: 82px; resize: vertical; }
 .form-select {
   cursor: pointer; appearance: none; padding-right: 34px;

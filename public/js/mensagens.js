@@ -18,7 +18,8 @@ const Mensagens = {
     const corpo = document.getElementById('msgCorpo');
     corpo.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px"><span class="spinner"></span></td></tr>`;
 
-    try { this.lista = await Api.get('/api/mensagens'); }
+    const situacao = document.getElementById('msgSituacao')?.value || 'ativas';
+    try { this.lista = await Api.get('/api/mensagens', { situacao }); }
     catch (e) {
       corpo.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px;color:var(--red)">${escapar(e.message)}</td></tr>`;
       return;
@@ -41,6 +42,7 @@ const Mensagens = {
         <td>
           <div style="font-weight:600;font-size:12.5px">${escapar(m.titulo)}</div>
           <div style="font-size:11px;color:var(--txt3)">por ${escapar(m.criado_nome || '—')}</div>
+          ${m.invalidada_em ? `<div style="font-size:11px" class="c-red">Invalidada: ${escapar(m.invalidada_motivo)}</div>` : ''}
         </td>
         <td><span class="badge badge-cinza">${escapar(nomeTipo(m.tipo))}</span></td>
         <td style="font-size:12.5px">
@@ -61,7 +63,10 @@ const Mensagens = {
         </td>
         <td class="acoes">
           <button class="btn-ico" onclick="Mensagens.verDetalhe(${m.id})" title="Ver quem leu">👁️</button>
-          <button class="btn-ico perigo" onclick="Mensagens.excluir(${m.id})" title="Excluir">🗑️</button>
+          ${m.invalidada_em ? '<span class="badge badge-cinza">invalidada</span>'
+            : m.cientes > 0
+              ? `<button class="btn-ico" onclick="Mensagens.invalidar(${m.id})" title="Invalidar">🚫</button>`
+              : `<button class="btn-ico perigo" onclick="Mensagens.excluir(${m.id})" title="Excluir">🗑️</button>`}
         </td>
       </tr>`).join('');
 
@@ -182,6 +187,23 @@ const Mensagens = {
     try {
       await Api.excluir('/api/mensagens/' + id);
       toast('Mensagem excluída.');
+      this.carregar();
+    } catch (e) { toastErro(e.message); }
+  },
+
+  /** Mensagens já confirmadas por algum responsável não podem mais ser
+   *  excluídas — só invalidadas, com motivo, permanecendo visíveis. */
+  async invalidar(id) {
+    const m = this.lista.find(x => x.id === id);
+    const motivo = await pedirTexto(
+      `Invalidar "${m ? m.titulo : 'mensagem'}"`,
+      { rotulo: 'Motivo da invalidação', textoOk: 'Invalidar', placeholder: 'Ex.: informação incorreta, comunicado duplicado…' }
+    );
+    if (!motivo) return;
+
+    try {
+      await Api.post(`/api/mensagens/${id}/invalidar`, { motivo });
+      toast('Mensagem invalidada.');
       this.carregar();
     } catch (e) { toastErro(e.message); }
   },

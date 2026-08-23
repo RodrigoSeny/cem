@@ -66,6 +66,7 @@ app.use('/api/banco',         require('./src/routes/banco.routes'));
 app.use('/api/conciliacao',  require('./src/routes/conciliacao.routes'));
 app.use('/api/municipios',    require('./src/routes/municipios.routes'));
 app.use('/api/sql',           require('./src/routes/sql.routes'));
+app.use('/api/sistema',       require('./src/routes/sistema.routes'));
 app.use('/api/usuarios',      rotasUsuarios);
 app.use('/api/perfis',        rotasPerfis);
 

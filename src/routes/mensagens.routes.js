@@ -37,8 +37,22 @@ function destinatarios({ alvo, turma_id, aluno_id }) {
 // ── GET /api/mensagens/tipos ──────────────────────────────────
 router.get('/tipos', rota((req, res) => res.json(TIPOS)));
 
+/** A mensagem já foi confirmada por pelo menos um responsável? */
+function temCiencia(mensagemId) {
+  return !!db.prepare(
+    'SELECT 1 FROM mensagem_destinatarios WHERE mensagem_id = ? AND ciente_em IS NOT NULL LIMIT 1'
+  ).get(mensagemId);
+}
+
 // ── GET /api/mensagens ────────────────────────────────────────
+// Por padrão só mostra as ativas (não invalidadas) — passe situacao=todas
+// ou situacao=invalidadas para ver as demais.
 router.get('/', rota((req, res) => {
+  const { situacao } = req.query;
+  const where = situacao === 'todas' ? ''
+    : situacao === 'invalidadas' ? 'WHERE m.invalidada_em IS NOT NULL'
+    : 'WHERE m.invalidada_em IS NULL';
+
   res.json(db.prepare(`
     SELECT m.*,
            t.nome AS turma_nome,
@@ -49,6 +63,7 @@ router.get('/', rota((req, res) => {
       FROM mensagens m
       LEFT JOIN turmas t ON t.id = m.turma_id
       LEFT JOIN alunos a ON a.id = m.aluno_id
+     ${where}
      ORDER BY m.id DESC LIMIT 200`).all());
 }));
 
@@ -127,8 +142,34 @@ router.delete('/:id', rota((req, res) => {
   const m = db.prepare('SELECT titulo FROM mensagens WHERE id = ?').get(id);
   if (!m) return res.status(404).json({ error: 'Mensagem não encontrada.' });
 
+  if (temCiencia(id)) {
+    return res.status(409).json({
+      error: 'Esta mensagem já foi confirmada por um responsável e não pode mais ser excluída. Invalide-a, informando o motivo.',
+    });
+  }
+
   db.prepare('DELETE FROM mensagens WHERE id = ?').run(id);
   log(req, 'excluir', 'mensagens', id, m.titulo);
+  res.json({ ok: true });
+}));
+
+// ── POST /api/mensagens/:id/invalidar ─────────────────────────
+// Não apaga a mensagem: ela continua visível, só marcada como inválida
+// (com o motivo), para preservar o histórico de comunicação com a família.
+router.post('/:id/invalidar', rota((req, res) => {
+  const id = Number(req.params.id);
+  const m = db.prepare('SELECT titulo, invalidada_em FROM mensagens WHERE id = ?').get(id);
+  if (!m) return res.status(404).json({ error: 'Mensagem não encontrada.' });
+  if (m.invalidada_em) return res.status(409).json({ error: 'Esta mensagem já está invalidada.' });
+
+  const motivo = String(req.body.motivo || '').trim();
+  if (!motivo) return res.status(400).json({ error: 'Informe o motivo da invalidação.' });
+
+  db.prepare(`
+    UPDATE mensagens SET invalidada_em = ?, invalidada_motivo = ?, invalidada_por = ?
+     WHERE id = ?`).run(agora(), motivo, req.usuario?.id ?? null, id);
+
+  log(req, 'invalidar', 'mensagens', id, `${m.titulo} · ${motivo}`);
   res.json({ ok: true });
 }));
 

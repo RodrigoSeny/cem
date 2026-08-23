@@ -53,6 +53,7 @@
     </div>
 
     <div class="nav-scroll">
+      <div class="beta-aviso oculto" id="avisoBeta">›› BETA ‹‹</div>
       <div class="nav-section">Menu principal</div>
       <div class="nav-item active" data-pagina="home"><span class="ico">🏠</span> Painel</div>
 
@@ -337,6 +338,14 @@
             <option value="grave">Grave</option>
           </select>
         </div>
+        <div class="campo">
+          <label>Situação</label>
+          <select class="form-select" id="ocorrSituacao" style="min-width:140px">
+            <option value="ativas">Ativas</option>
+            <option value="todas">Todas</option>
+            <option value="invalidadas">Invalidadas</option>
+          </select>
+        </div>
         <div class="campo"><label>De</label><input type="date" class="form-input" id="ocorrDe"></div>
         <div class="campo"><label>Até</label><input type="date" class="form-input" id="ocorrAte"></div>
       </div>
@@ -363,6 +372,17 @@
         </div>
         <div class="pagina-acoes">
           <button class="btn btn-primary" onclick="Mensagens.abrirNova()">✉️ Nova mensagem</button>
+        </div>
+      </div>
+
+      <div class="filtros" style="margin-bottom:12px">
+        <div class="campo">
+          <label>Situação</label>
+          <select class="form-select" id="msgSituacao" style="min-width:150px" onchange="Mensagens.carregar()">
+            <option value="ativas">Ativas</option>
+            <option value="todas">Todas</option>
+            <option value="invalidadas">Invalidadas</option>
+          </select>
         </div>
       </div>
 
@@ -880,15 +900,27 @@
         <div class="secao-titulo">Identidade visual</div>
         <div class="form-grid" style="align-items:center">
           <div class="form-group">
-            <label class="form-label">Caminho do logotipo</label>
-            <input class="form-input" data-campo="logo_url">
-            <div class="form-hint">Usado no login, no menu e no cabeçalho dos relatórios.</div>
+            <label class="form-label">Logotipo da escola</label>
+            <input type="file" id="logoArquivo" class="oculto" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+            <div><button class="btn btn-ghost" type="button" id="btnTrocarLogo" onclick="document.getElementById('logoArquivo').click()">🖼️ Trocar logotipo</button></div>
+            <div class="form-hint">PNG, JPG, WEBP ou SVG, até 5 MB. Usado no login, no menu e no cabeçalho dos relatórios.</div>
           </div>
           <div style="text-align:center">
             <img src="/img/LogoMilezi.jpg" id="previewLogo" alt="Logo"
                  style="width:110px;height:110px;object-fit:contain;background:#fff;border-radius:16px;padding:6px;box-shadow:0 0 0 1px var(--border)">
           </div>
         </div>
+      </div>
+
+      <div class="card card-p oculto" id="cardZonaRisco" style="max-width:920px;border-color:var(--red);margin-top:18px">
+        <div class="secao-titulo c-red">Zona de risco · teste beta</div>
+        <div class="form-hint mb-3">
+          Apaga <strong>todos os dados operacionais</strong> — alunos, responsáveis, funcionários,
+          turmas, financeiro, mensagens, ocorrências, anexos e acessos ao sistema/app. Ficam
+          preservados: os dados desta tela (escola), os perfis de acesso e o seu próprio usuário
+          Master. Ação exclusiva do Master, disponível só durante o teste beta.
+        </div>
+        <button class="btn btn-danger" onclick="Configuracoes.limparTudo()">🗑️ Apagar todos os dados do sistema</button>
       </div>
     </section>
 
@@ -1410,6 +1442,7 @@
       <button class="btn-ico" onclick="fecharModal('modalOcorrencia')">✕</button>
     </div>
     <div class="modal-body" id="formOcorrencia">
+      <div class="form-hint oculto" id="ocorrBloqueio" style="border:1px solid var(--red);background:rgba(255,94,94,.08);padding:10px 12px;border-radius:9px;margin-bottom:14px"></div>
       <div class="form-grid3">
         <div class="form-group col-2">
           <label class="form-label">Aluno <span class="req">*</span></label>
@@ -1454,7 +1487,8 @@
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="fecharModal('modalOcorrencia')">Cancelar</button>
-      <button class="btn btn-primary" onclick="Ocorrencias.salvar()">💾 Salvar ocorrência</button>
+      <button class="btn btn-ico oculto" id="btnInvalidarOcorrencia" onclick="Ocorrencias.invalidar()" title="Invalidar">🚫 Invalidar</button>
+      <button class="btn btn-primary" id="btnSalvarOcorrencia" onclick="Ocorrencias.salvar()">💾 Salvar ocorrência</button>
     </div>
   </div>
 </div>

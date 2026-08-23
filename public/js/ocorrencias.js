@@ -20,6 +20,7 @@ const Ocorrencias = {
       turma_id: document.getElementById('ocorrTurma').value,
       tipo: document.getElementById('ocorrTipo').value,
       gravidade: document.getElementById('ocorrGravidade').value,
+      situacao: document.getElementById('ocorrSituacao').value,
       de: document.getElementById('ocorrDe').value,
       ate: document.getElementById('ocorrAte').value,
     };
@@ -61,6 +62,7 @@ const Ocorrencias = {
         <td>
           <div style="font-weight:600;font-size:12.5px">${escapar(o.titulo)}</div>
           ${o.qtd_anexos ? `<div style="font-size:11px;color:var(--txt3)">📎 ${o.qtd_anexos} anexo(s)</div>` : ''}
+          ${o.invalidada_em ? `<div style="font-size:11px" class="c-red">Invalidada: ${escapar(o.invalidada_motivo)}</div>` : ''}
         </td>
         <td>${badgeGravidade(o.gravidade)}</td>
         <td>
@@ -76,7 +78,10 @@ const Ocorrencias = {
         <td style="font-size:12px;color:var(--txt2)">${escapar(o.registrado_nome || '—')}</td>
         <td class="acoes">
           <button class="btn-ico" onclick="Ocorrencias.abrirEdicao(${o.id})" title="Abrir">✏️</button>
-          <button class="btn-ico perigo" onclick="Ocorrencias.excluir(${o.id})" title="Excluir">🗑️</button>
+          ${o.invalidada_em ? '<span class="badge badge-cinza">invalidada</span>'
+            : o.qtd_ciencias > 0
+              ? `<button class="btn-ico" onclick="Ocorrencias.invalidar(${o.id})" title="Invalidar">🚫</button>`
+              : `<button class="btn-ico perigo" onclick="Ocorrencias.excluir(${o.id})" title="Excluir">🗑️</button>`}
         </td>
       </tr>`).join('');
 
@@ -119,6 +124,7 @@ const Ocorrencias = {
 
     this.toggleCiencia();
     this.sugerirGravidade();
+    this.aplicarBloqueio(null);
     abrirModal('modalOcorrencia');
   },
 
@@ -142,8 +148,34 @@ const Ocorrencias = {
       `${o.aluno_nome} · registrada por ${o.registrado_nome || '—'} em ${dataHoraBR(o.criado_em)}`;
 
     this.toggleCiencia();
-    UI.painelAnexos('ocorrAnexos', 'ocorrencia', id);
+    await UI.painelAnexos('ocorrAnexos', 'ocorrencia', id);
+    this.aplicarBloqueio(o);
     abrirModal('modalOcorrencia');
+  },
+
+  /**
+   * Ocorrência já confirmada por um responsável (ou já invalidada) não pode
+   * mais ser editada/excluída pelo formulário — trava os campos e troca o
+   * botão "Salvar" por "Invalidar".
+   */
+  aplicarBloqueio(o) {
+    const bloqueada = !!o && (o.qtd_ciencias > 0 || o.invalidada_em);
+    const banner = document.getElementById('ocorrBloqueio');
+    const form = document.getElementById('formOcorrencia');
+
+    // Trava os campos e as ações que alterariam o registro (editar dados,
+    // anexar ou excluir arquivo) — "Abrir" (visualizar anexo) continua liberado.
+    form.querySelectorAll('[data-campo]').forEach(el => { el.disabled = bloqueada; });
+    document.querySelectorAll('#ocorrAnexos button[id$="_btn"], #ocorrAnexos .btn-ico.perigo')
+      .forEach(el => { el.disabled = bloqueada; });
+
+    banner.classList.toggle('oculto', !bloqueada);
+    banner.textContent = o?.invalidada_em
+      ? `Ocorrência invalidada em ${dataHoraBR(o.invalidada_em)} — motivo: ${o.invalidada_motivo}`
+      : bloqueada ? 'Esta ocorrência já foi confirmada por um responsável e não pode mais ser editada ou excluída — apenas invalidada.' : '';
+
+    document.getElementById('btnSalvarOcorrencia').classList.toggle('oculto', bloqueada);
+    document.getElementById('btnInvalidarOcorrencia').classList.toggle('oculto', !bloqueada || !!o?.invalidada_em);
   },
 
   /** Mostra/oculta "Exigir ciência" conforme visivel_responsavel. */
@@ -203,12 +235,31 @@ const Ocorrencias = {
       this.carregar();
     } catch (e) { toastErro(e.message); }
   },
+
+  /** Ocorrências já confirmadas por algum responsável não podem mais ser
+   *  excluídas/editadas — só invalidadas, com motivo, permanecendo visíveis. */
+  async invalidar(id = this.editandoId) {
+    if (!id) return;
+    const o = this.lista.find(x => x.id === id);
+    const motivo = await pedirTexto(
+      `Invalidar "${o ? o.titulo : 'ocorrência'}"`,
+      { rotulo: 'Motivo da invalidação', textoOk: 'Invalidar', placeholder: 'Ex.: registro incorreto, duplicado…' }
+    );
+    if (!motivo) return;
+
+    try {
+      await Api.post(`/api/ocorrencias/${id}/invalidar`, { motivo });
+      toast('Ocorrência invalidada.');
+      if (document.getElementById('modalOcorrencia').classList.contains('aberto')) fecharModal('modalOcorrencia');
+      this.carregar();
+    } catch (e) { toastErro(e.message); }
+  },
 };
 
 Carregadores.ocorrencias = () => Ocorrencias.carregar();
 
 document.addEventListener('DOMContentLoaded', () => {
-  ['ocorrAluno', 'ocorrTurma', 'ocorrTipo', 'ocorrGravidade', 'ocorrDe', 'ocorrAte'].forEach(id => {
+  ['ocorrAluno', 'ocorrTurma', 'ocorrTipo', 'ocorrGravidade', 'ocorrSituacao', 'ocorrDe', 'ocorrAte'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', () => Ocorrencias.carregar());
   });
 });
