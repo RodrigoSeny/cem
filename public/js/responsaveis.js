@@ -63,17 +63,76 @@ const Responsaveis = {
 
   /**
    * Abre o cadastro. Quando chamado de dentro da ficha do aluno,
-   * `aoSalvar` recebe o id gravado para vincular na hora.
+   * `aoSalvar` recebe o id gravado para vincular na hora — nesse caso o
+   * aluno já é conhecido, então pulamos a pergunta de "já tem aluno".
    */
-  abrirNovo({ aoSalvar } = {}) {
+  async abrirNovo({ aoSalvar } = {}) {
     this.editandoId = null;
     this.aoSalvar = aoSalvar || null;
+
+    const endereco = aoSalvar ? null : await this.perguntarEnderecoDeAluno();
+
     limparFormulario('formResponsavel');
     document.getElementById('formResponsavel').querySelector('[data-campo=ativo]').checked = true;
+    if (endereco) this.preencherEndereco(endereco);
+    this.atualizarEstadoWhatsapp();
+
     document.getElementById('modalRespTitulo').textContent = 'Novo responsável';
     document.getElementById('modalRespSub').textContent = aoSalvar
       ? 'Ao salvar, ele já será vinculado ao aluno.' : '';
     abrirModal('modalResponsavel');
+  },
+
+  /**
+   * Fluxo de "já tem aluno cadastrado?" para quem entra pelo cadastro avulso
+   * de responsáveis. Devolve os campos de endereço a copiar, ou null.
+   */
+  async perguntarEnderecoDeAluno() {
+    const temAluno = await confirmar(
+      'O aluno deste responsável já está cadastrado no sistema?',
+      { titulo: 'Novo responsável', textoOk: 'Sim, selecionar aluno', perigo: false }
+    );
+    if (!temAluno) return null;
+
+    if (!Cache.alunos.length) await Cache.recarregarAlunos();
+    const alunoId = await selecionarOpcao('Selecionar aluno',
+      Cache.alunos.map(a => ({ id: a.id, texto: a.nome + (a.turma_nome ? ' · ' + a.turma_nome : '') })),
+      { rotulo: 'Aluno' });
+    if (!alunoId) return null;
+
+    let aluno;
+    try { aluno = await Api.get('/api/alunos/' + alunoId); }
+    catch (e) { toastErro(e.message); return null; }
+
+    const repetirDoAluno = await confirmar(
+      `Repetir o endereço de ${nomeCurto(aluno.nome)} para este responsável?`,
+      { titulo: 'Endereço', textoOk: 'Sim, repetir', perigo: false }
+    );
+    if (repetirDoAluno) return aluno;
+
+    // Não repetiu do aluno: oferece copiar de um dos responsáveis já vinculados a ele.
+    await Cache.recarregarResponsaveis();
+    const vinculados = (aluno.responsaveis || [])
+      .map(v => Cache.responsaveis.find(r => r.id === v.id))
+      .filter(r => r && (r.logradouro || r.cep));
+    if (!vinculados.length) return null;
+
+    // Só pergunta se houver endereços realmente diferentes entre eles.
+    const chave = r => [r.cep, r.logradouro, r.numero, r.complemento, r.bairro, r.cidade, r.estado].join('|');
+    const distintos = [...new Map(vinculados.map(r => [chave(r), r])).values()];
+    if (distintos.length === 1) return distintos[0];
+
+    const respId = await selecionarOpcao('Repetir endereço de qual responsável?',
+      distintos.map(r => ({ id: r.id, texto: r.nome })), { rotulo: 'Responsável' });
+    return distintos.find(r => String(r.id) === String(respId)) || null;
+  },
+
+  preencherEndereco(origem) {
+    const form = document.getElementById('formResponsavel');
+    for (const campo of ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado']) {
+      const el = form.querySelector(`[data-campo="${campo}"]`);
+      if (el) el.value = origem[campo] || '';
+    }
   },
 
   async abrirEdicao(id, { aoSalvar } = {}) {
@@ -85,15 +144,43 @@ const Responsaveis = {
     this.aoSalvar = aoSalvar || null;
     limparFormulario('formResponsavel');
     preencherFormulario('formResponsavel', r);
+    this.atualizarEstadoWhatsapp();
     document.getElementById('modalRespTitulo').textContent = r.nome;
     document.getElementById('modalRespSub').textContent =
       r.alunos?.length ? `${r.alunos.length} aluno(s) vinculado(s)` : '';
     abrirModal('modalResponsavel');
   },
 
+  // ── WhatsApp = telefone ────────────────────────────────────
+  sincronizarWhatsapp() {
+    if (!document.getElementById('respMesmoWhatsapp').checked) return;
+    const tel = document.querySelector('#formResponsavel [data-campo=telefone]').value;
+    document.getElementById('respWhatsapp').value = tel;
+  },
+
+  alternarMesmoWhatsapp(marcado) {
+    const zap = document.getElementById('respWhatsapp');
+    zap.disabled = marcado;
+    if (marcado) zap.value = document.querySelector('#formResponsavel [data-campo=telefone]').value;
+  },
+
+  /** Ao abrir um cadastro, detecta se telefone e whatsapp já são iguais. */
+  atualizarEstadoWhatsapp() {
+    const tel = document.querySelector('#formResponsavel [data-campo=telefone]').value;
+    const zap = document.getElementById('respWhatsapp');
+    const mesmo = !!tel && tel === zap.value;
+    document.getElementById('respMesmoWhatsapp').checked = mesmo;
+    zap.disabled = mesmo;
+  },
+
   async salvar() {
     const dados = lerFormulario('formResponsavel');
     if (!dados.nome) return toastErro('Informe o nome do responsável.');
+    if (!dados.cpf) return toastErro('Informe o CPF do responsável.');
+    const enderecoObrigatorio = ['cep', 'logradouro', 'numero', 'bairro', 'cidade', 'estado'];
+    if (enderecoObrigatorio.some(campo => !dados[campo])) {
+      return toastErro('Preencha o endereço completo do responsável.');
+    }
 
     try {
       let id = this.editandoId;

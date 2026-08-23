@@ -108,6 +108,7 @@ const Financeiro = {
     setTimeout(() => {
       this.abrirAbaRecebimento('mensalidades');
       document.getElementById('finSituacao').value = 'vencida';
+      document.getElementById('finCompetencia').value = ''; // vencidas podem ser de qualquer mês
       this.carregarParcelas();
     }, 120);
   },
@@ -133,6 +134,7 @@ const Financeiro = {
     const filtros = {
       aluno_id: document.getElementById('finAluno').value,
       turma_id: document.getElementById('finTurma').value,
+      competencia: document.getElementById('finCompetencia').value,
       de: document.getElementById('finDe').value,
       ate: document.getElementById('finAte').value,
     };
@@ -364,9 +366,6 @@ const Financeiro = {
     document.getElementById('contratoPlano').innerHTML =
       this.planos.filter(p => p.ativo || p.id === id).map(p =>
         `<option value="${p.id}">${escapar(p.nome)} — ${moedaBR(p.valor_mensalidade)}</option>`).join('');
-    document.getElementById('contratoResponsavel').innerHTML =
-      '<option value="">Responsável principal do aluno</option>' +
-      Cache.responsaveis.map(r => `<option value="${r.id}">${escapar(r.nome)}</option>`).join('');
 
     const form = document.getElementById('formContrato');
 
@@ -374,6 +373,7 @@ const Financeiro = {
       const c = this.contratos.find(x => x.id === id);
       document.getElementById('contratoAluno').innerHTML = Cache.opcoesAlunos(c.aluno_id);
       document.getElementById('contratoAluno').disabled = true;
+      await this.carregarResponsaveisContrato();
       preencherFormulario('formContrato', {
         ...c,
         valor_mensalidade: Number(c.valor_mensalidade).toFixed(2).replace('.', ','),
@@ -384,6 +384,7 @@ const Financeiro = {
     } else {
       document.getElementById('contratoAluno').innerHTML = Cache.opcoesAlunos();
       document.getElementById('contratoAluno').disabled = false;
+      await this.carregarResponsaveisContrato();
       form.querySelector('[data-campo=ano_letivo]').value = new Date().getFullYear();
       form.querySelector('[data-campo=mes_inicio]').value = '1';
       form.querySelector('[data-campo=status]').value = 'ativo';
@@ -393,6 +394,28 @@ const Financeiro = {
 
     this.previaContrato();
     abrirModal('modalContrato');
+  },
+
+  /** Restringe o select de responsável financeiro aos responsáveis vinculados ao aluno selecionado. */
+  async carregarResponsaveisContrato() {
+    const alunoId = document.getElementById('contratoAluno').value;
+    const sel = document.getElementById('contratoResponsavel');
+    const anterior = sel.value;
+
+    if (!alunoId) {
+      sel.innerHTML = '<option value="">Selecione o aluno primeiro</option>';
+      return;
+    }
+
+    let vinculados = [];
+    try {
+      const aluno = await Api.get('/api/alunos/' + alunoId);
+      vinculados = aluno.responsaveis || [];
+    } catch { vinculados = []; }
+
+    sel.innerHTML = '<option value="">Responsável principal do aluno</option>' +
+      vinculados.map(r => `<option value="${r.id}">${escapar(r.nome)}</option>`).join('');
+    sel.value = vinculados.some(r => String(r.id) === String(anterior)) ? anterior : '';
   },
 
   /** Ao escolher o plano, herda valor, parcelas e vencimento. */
@@ -555,7 +578,7 @@ const Financeiro = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  ['finAluno', 'finTurma', 'finSituacao', 'finDe', 'finAte'].forEach(id =>
+  ['finAluno', 'finTurma', 'finSituacao', 'finCompetencia', 'finDe', 'finAte'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', () => Financeiro.carregarParcelas()));
 
   ['desconto_percentual', 'bolsa_percentual', 'valor_mensalidade', 'num_parcelas'].forEach(campo => {

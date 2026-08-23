@@ -19,6 +19,14 @@ const CONFLITOS = {
   'responsaveis.cpf': 'Já existe um responsável cadastrado com este CPF.',
 };
 
+const ENDERECO_OBRIGATORIO = ['cep', 'logradouro', 'numero', 'bairro', 'cidade', 'estado'];
+
+function validarCpfEndereco(d) {
+  if (!d.cpf) return 'Informe o CPF do responsável.';
+  if (ENDERECO_OBRIGATORIO.some(campo => !d[campo])) return 'Preencha o endereço completo do responsável.';
+  return null;
+}
+
 function preparar(body) {
   const d = filtrarCampos(body, CAMPOS);
   if ('cpf' in d) d.cpf = soNumeros(d.cpf);
@@ -74,6 +82,8 @@ router.get('/:id', rota((req, res) => {
 router.post('/', rota((req, res) => {
   const d = preparar(req.body);
   if (!d.nome) return res.status(400).json({ error: 'O nome do responsável é obrigatório.' });
+  const erroEndereco = validarCpfEndereco(d);
+  if (erroEndereco) return res.status(400).json({ error: erroEndereco });
   d.criado_em = agora();
 
   const { sql, valores } = montarInsert('responsaveis', d);
@@ -86,11 +96,13 @@ router.post('/', rota((req, res) => {
 // ── PUT /api/responsaveis/:id ─────────────────────────────────
 router.put('/:id', rota((req, res) => {
   const id = Number(req.params.id);
-  if (!db.prepare('SELECT id FROM responsaveis WHERE id = ?').get(id)) {
-    return res.status(404).json({ error: 'Responsável não encontrado.' });
-  }
+  const atual = db.prepare('SELECT * FROM responsaveis WHERE id = ?').get(id);
+  if (!atual) return res.status(404).json({ error: 'Responsável não encontrado.' });
+
   const d = preparar(req.body);
   if ('nome' in d && !d.nome) return res.status(400).json({ error: 'O nome do responsável é obrigatório.' });
+  const erroEndereco = validarCpfEndereco({ ...atual, ...d });
+  if (erroEndereco) return res.status(400).json({ error: erroEndereco });
   d.atualizado_em = agora();
 
   const { sql, valores } = montarUpdate('responsaveis', d, id);

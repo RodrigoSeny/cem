@@ -502,6 +502,7 @@
               <option value="paga">Pagas</option>
             </select>
           </div>
+          <div class="campo"><label>Competência</label><input type="month" class="form-input" id="finCompetencia"></div>
           <div class="campo"><label>Vence de</label><input type="date" class="form-input" id="finDe"></div>
           <div class="campo"><label>até</label><input type="date" class="form-input" id="finAte"></div>
         </div>
@@ -1098,8 +1099,14 @@
 
       <div class="secao-titulo">Contato</div>
       <div class="form-grid3">
-        <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" data-campo="telefone" data-mascara="telefone"></div>
-        <div class="form-group"><label class="form-label">WhatsApp</label><input class="form-input" data-campo="whatsapp" data-mascara="telefone"></div>
+        <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" data-campo="telefone" data-mascara="telefone" oninput="Responsaveis.sincronizarWhatsapp()"></div>
+        <div class="form-group">
+          <label class="form-label">WhatsApp</label>
+          <input class="form-input" data-campo="whatsapp" data-mascara="telefone" id="respWhatsapp">
+          <label class="form-check" style="margin-top:6px">
+            <input type="checkbox" id="respMesmoWhatsapp" onchange="Responsaveis.alternarMesmoWhatsapp(this.checked)"> É o mesmo número do telefone
+          </label>
+        </div>
         <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" type="email" data-campo="email"></div>
       </div>
 
@@ -1546,7 +1553,7 @@
       <div class="form-grid">
         <div class="form-group col-2">
           <label class="form-label">Aluno <span class="req">*</span></label>
-          <select class="form-select" id="contratoAluno"></select>
+          <select class="form-select" id="contratoAluno" onchange="Financeiro.carregarResponsaveisContrato()"></select>
         </div>
         <div class="form-group col-2">
           <label class="form-label">Plano <span class="req">*</span></label>

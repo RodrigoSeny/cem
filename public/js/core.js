@@ -189,6 +189,42 @@ function confirmar(mensagem, { titulo = 'Confirmar', textoOk = 'Confirmar', peri
   });
 }
 
+/** Seleção única em lista, em modal (resolve o id escolhido, ou null se cancelar). */
+function selecionarOpcao(titulo, opcoes, { rotulo = 'Selecione', textoOk = 'Confirmar' } = {}) {
+  return new Promise(resolve => {
+    const id = 'modalSelecionar_' + Date.now();
+    const el = document.createElement('div');
+    el.className = 'modal-overlay aberto';
+    el.id = id;
+    el.innerHTML = `
+      <div class="modal" style="max-width:430px">
+        <div class="modal-head"><h3>${escapar(titulo)}</h3></div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">${escapar(rotulo)}</label>
+            <select class="form-select" data-sel>
+              <option value="">Selecione…</option>
+              ${opcoes.map(o => `<option value="${o.id}">${escapar(o.texto)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-acao="cancelar">Cancelar</button>
+          <button class="btn btn-primary" data-acao="ok">${escapar(textoOk)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+
+    const responder = v => { el.remove(); resolve(v); };
+    el.querySelector('[data-acao=ok]').onclick = () => {
+      const v = el.querySelector('[data-sel]').value;
+      if (v) responder(v);
+    };
+    el.querySelector('[data-acao=cancelar]').onclick = () => responder(null);
+    el.onclick = e => { if (e.target === el) responder(null); };
+  });
+}
+
 // ─────────────────────────────────────────────────────────────
 // FORMATAÇÃO
 // ─────────────────────────────────────────────────────────────

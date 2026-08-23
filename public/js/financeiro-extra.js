@@ -60,7 +60,11 @@ Object.assign(Financeiro, {
     ['mensalidades', 'movimento', 'planilha'].forEach(n =>
       document.getElementById('recaba-' + n)?.classList.toggle('active', n === nome));
 
-    if (nome === 'mensalidades') { this.montarFiltros(); this.carregarParcelas(); }
+    if (nome === 'mensalidades') {
+      this.montarFiltros();
+      document.getElementById('finCompetencia').value ||= mesAtual();
+      this.carregarParcelas();
+    }
     if (nome === 'movimento') document.getElementById('movCompetencia').value ||= mesAtual();
     if (nome === 'planilha') document.getElementById('planCompetencia').value ||= mesAtual();
   },

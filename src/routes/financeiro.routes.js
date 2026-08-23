@@ -176,8 +176,13 @@ router.post('/contratos', rota((req, res) => {
   d.status = d.status || 'ativo';
   d.criado_em = agora();
 
-  // Responsável financeiro padrão: o principal do aluno
-  if (!d.responsavel_id) {
+  if (d.responsavel_id) {
+    const vinculado = db.prepare(
+      'SELECT 1 FROM aluno_responsaveis WHERE aluno_id = ? AND responsavel_id = ?'
+    ).get(d.aluno_id, d.responsavel_id);
+    if (!vinculado) return res.status(400).json({ error: 'Este responsável não está vinculado ao aluno selecionado.' });
+  } else {
+    // Responsável financeiro padrão: o principal do aluno
     const r = db.prepare(`
       SELECT responsavel_id FROM aluno_responsaveis
        WHERE aluno_id = ? AND tipo_vinculo IN ('financeiro','ambos')
@@ -209,6 +214,13 @@ router.put('/contratos/:id', rota((req, res) => {
   for (const n of ['plano_id', 'responsavel_id', 'valor_mensalidade', 'desconto_percentual',
                    'bolsa_percentual', 'dia_vencimento', 'num_parcelas', 'mes_inicio']) {
     if (n in d) d[n] = d[n] === null ? null : Number(d[n]);
+  }
+
+  if (d.responsavel_id) {
+    const vinculado = db.prepare(
+      'SELECT 1 FROM aluno_responsaveis WHERE aluno_id = ? AND responsavel_id = ?'
+    ).get(atual.aluno_id, d.responsavel_id);
+    if (!vinculado) return res.status(400).json({ error: 'Este responsável não está vinculado ao aluno selecionado.' });
   }
 
   const { sql, valores } = montarUpdate('contratos_financeiros', d, id);
