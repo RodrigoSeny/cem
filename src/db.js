@@ -289,6 +289,65 @@ CREATE TABLE IF NOT EXISTS webauthn_credenciais (
 );
 CREATE INDEX IF NOT EXISTS idx_webauthn_usuario ON webauthn_credenciais (usuario_id);
 
+-- ── Agenda diária: "dia normal" configurável por turma + exceções do dia ──
+CREATE TABLE IF NOT EXISTS agenda_padrao_turma (
+  turma_id      INTEGER PRIMARY KEY REFERENCES turmas(id) ON DELETE CASCADE,
+  sono          TEXT CHECK (sono IN ('manha','apos_almoco','tarde','nao_dormiu')),
+  banho         INTEGER,
+  disposicao    TEXT CHECK (disposicao IN ('normal','agitado','quieto')),
+  evacuacao     TEXT CHECK (evacuacao IN ('normal','pastosa','liquida','nao_evacuou')),
+  colacao       TEXT CHECK (colacao IN ('bem','metade','menos_metade','recusou')),
+  almoco        TEXT CHECK (almoco  IN ('bem','metade','menos_metade','recusou')),
+  lanche        TEXT CHECK (lanche  IN ('bem','metade','menos_metade','recusou')),
+  jantar        TEXT CHECK (jantar  IN ('bem','metade','menos_metade','recusou')),
+  atualizado_em TEXT
+);
+
+-- Registro do dia por aluno. Os 8 campos de rotina ficam NULL quando o dia
+-- foi igual ao padrão da turma — só são gravados quando alguém lança uma
+-- exceção. Os demais (observações, febre etc.) são sempre do dia, sem padrão.
+CREATE TABLE IF NOT EXISTS agenda_diaria (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  aluno_id      INTEGER NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  turma_id      INTEGER REFERENCES turmas(id) ON DELETE SET NULL,
+  data          TEXT NOT NULL,
+  entrada       TEXT,
+  saida         TEXT,
+  sono          TEXT CHECK (sono IN ('manha','apos_almoco','tarde','nao_dormiu')),
+  banho         INTEGER,
+  disposicao    TEXT CHECK (disposicao IN ('normal','agitado','quieto')),
+  evacuacao     TEXT CHECK (evacuacao IN ('normal','pastosa','liquida','nao_evacuou')),
+  colacao       TEXT CHECK (colacao IN ('bem','metade','menos_metade','recusou')),
+  almoco        TEXT CHECK (almoco  IN ('bem','metade','menos_metade','recusou')),
+  lanche        TEXT CHECK (lanche  IN ('bem','metade','menos_metade','recusou')),
+  jantar        TEXT CHECK (jantar  IN ('bem','metade','menos_metade','recusou')),
+  observacoes   TEXT,
+  teve_febre    INTEGER NOT NULL DEFAULT 0,
+  temperatura   TEXT,
+  febre_hora    TEXT,
+  antifebril    TEXT,
+  criado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  criado_em     TEXT DEFAULT (datetime('now','localtime')),
+  atualizado_em TEXT,
+  UNIQUE (aluno_id, data)
+);
+CREATE INDEX IF NOT EXISTS idx_agenda_diaria_aluno ON agenda_diaria (aluno_id, data);
+
+-- "Mamãe trazer" e remédios não têm padrão — são sempre do dia
+CREATE TABLE IF NOT EXISTS agenda_diaria_trazer (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  agenda_diaria_id INTEGER NOT NULL REFERENCES agenda_diaria(id) ON DELETE CASCADE,
+  item             TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS agenda_diaria_medicamentos (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  agenda_diaria_id INTEGER NOT NULL REFERENCES agenda_diaria(id) ON DELETE CASCADE,
+  nome_remedio     TEXT NOT NULL,
+  dosagem          TEXT,
+  horario          TEXT,
+  ministrado_por   TEXT
+);
+
 -- ── Usuários do sistema (funcionários) e do portal (responsáveis) ──
 CREATE TABLE IF NOT EXISTS usuarios (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -9,6 +9,16 @@ const USUARIO = Sessao.exigir();
 let inicioDados = null;
 let escolaDados = {};
 let alunoSelecionado = null;  // filho cujo contexto está ativo no app
+let comAtiva = 'mensagens';   // segmento ativo dentro da tela "Comunicações"
+let ultimoNaoLidas = 0;       // pra recompor o selo combinado fora do carregarInicio
+let ultimoOcorrPend = 0;
+
+const AGD_ROTULOS_PT = {
+  sono: { manha: 'Manhã', apos_almoco: 'Após o almoço', tarde: 'Tarde', nao_dormiu: 'Não dormiu' },
+  disposicao: { normal: 'Normal', agitado: 'Agitado', quieto: 'Quieto' },
+  evacuacao: { normal: 'Normal', pastosa: 'Pastosa', liquida: 'Líquida', nao_evacuou: 'Não evacuou' },
+  refeicao: { bem: 'Bem', metade: 'Metade', menos_metade: 'Menos da metade', recusou: 'Recusou' },
+};
 
 // ── Tema ──────────────────────────────────────────────────────
 function alternarTemaApp() {
@@ -18,7 +28,7 @@ function alternarTemaApp() {
 if (localStorage.getItem('cem_tema') === 'claro') document.body.classList.add('tema-claro');
 
 // ── Navegação inferior ────────────────────────────────────────
-function irTela(tela) {
+function irTela(tela, sub) {
   document.querySelectorAll('.tela').forEach(t => t.classList.remove('active'));
   document.getElementById('tela-' + tela)?.classList.add('active');
 
@@ -29,9 +39,8 @@ function irTela(tela) {
   window.scrollTo({ top: 0 });
   if (tela === 'consulta') Portal.renderConsulta();
   if (tela === 'conta') Portal.renderConta();
-  if (tela === 'mensagens') Portal.renderMensagens();
+  if (tela === 'comunicacoes') Portal.mudarComunicacao(sub || comAtiva);
   if (tela === 'financeiro') Portal.renderFinanceiro();
-  if (tela === 'ocorrencias') Portal.renderOcorrencias();
   if (tela === 'material') Portal.renderMaterial();
 }
 
@@ -158,13 +167,12 @@ const Portal = {
     document.getElementById('rotuloConsulta').textContent = 'Consultar';
 
     if (USUARIO.tipo === 'responsavel') {
-      // Responsáveis usam Financeiro e Histórico no lugar de Consultar e Mensagens no rodapé
+      // Responsáveis usam Financeiro no lugar de Consultar no rodapé
       document.getElementById('btnConsulta').style.display = 'none';
       document.getElementById('btnFinanceiro').style.display = '';
-      document.getElementById('btnOcorrencias').style.display = '';
     } else {
-      // Funcionários não têm caixa de mensagens
-      document.getElementById('btnMensagens').style.display = 'none';
+      // Funcionários não têm caixa de mensagens/ocorrências/agenda no app
+      document.getElementById('btnComunicacoes').style.display = 'none';
     }
 
     await this.carregarInicio();
@@ -187,14 +195,24 @@ const Portal = {
     try { d = await Api.get('/api/portal/mensagens/nao-lidas'); }
     catch { return; }
 
-    const selo = document.getElementById('seloMensagens');
-    const total = d.nao_lidas || 0;
-    selo.textContent = total > 9 ? '9+' : total;
-    selo.classList.toggle('mostrar', total > 0);
+    ultimoNaoLidas = d.nao_lidas || 0;
+    this._pintarSelo('seloSegMensagens', ultimoNaoLidas, d.aguardando_ciencia > 0);
+    this._atualizarSeloComunicacoes();
+  },
 
-    // Ciência pendente pinta o selo de dourado
-    selo.style.background = d.aguardando_ciencia > 0 ? 'var(--gold)' : 'var(--red)';
-    selo.style.color = d.aguardando_ciencia > 0 ? '#1A1A1A' : '#fff';
+  /** Pinta um selo numérico (vermelho = novidade, dourado = aguarda ciência). */
+  _pintarSelo(id, valor, urgente) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = valor > 9 ? '9+' : valor;
+    el.classList.toggle('mostrar', valor > 0);
+    el.style.background = urgente ? 'var(--gold)' : 'var(--red)';
+    el.style.color = urgente ? '#1A1A1A' : '#fff';
+  },
+
+  /** Selo do botão "Comunicações" no rodapé = soma dos 3 segmentos. */
+  _atualizarSeloComunicacoes(urgente = false) {
+    this._pintarSelo('seloComunicacoes', ultimoNaoLidas + ultimoOcorrPend, urgente);
   },
 
   // ── Início ──────────────────────────────────────────────────
@@ -225,14 +243,12 @@ const Portal = {
         seloFin.style.background = 'var(--red)';
         seloFin.style.color = '#fff';
       }
-      const ocorrPend = inicioDados.ocorr_pendentes || 0;
-      const seloOcorr = document.getElementById('seloOcorrencias');
-      if (seloOcorr) {
-        seloOcorr.textContent = ocorrPend > 9 ? '9+' : ocorrPend;
-        seloOcorr.classList.toggle('mostrar', ocorrPend > 0);
-        seloOcorr.style.background = 'var(--gold)';
-        seloOcorr.style.color = '#1A1A1A';
-      }
+      ultimoOcorrPend = inicioDados.ocorr_pendentes || 0;
+      ultimoNaoLidas = inicioDados.nao_lidas || 0;
+      const urgente = (inicioDados.aguardando_ciencia || 0) > 0;
+      this._pintarSelo('seloSegMensagens', ultimoNaoLidas, urgente);
+      this._pintarSelo('seloSegOcorrencias', ultimoOcorrPend, urgente);
+      this._atualizarSeloComunicacoes(urgente);
     }
 
     const hora = new Date().getHours();
@@ -306,7 +322,7 @@ const Portal = {
         </div>` : ''}
 
       ${d.aguardando_ciencia_msgs > 0 ? `
-        <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('mensagens')">
+        <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('comunicacoes','mensagens')">
           <div class="aluno-linha">
             <div class="aluno-av">📣</div>
             <div style="flex:1">
@@ -317,7 +333,7 @@ const Portal = {
           </div>
         </div>` : ''}
       ${d.aguardando_ciencia_ocorr > 0 ? `
-        <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('ocorrencias')">
+        <div class="cartao toque" style="border-color:var(--gold);background:var(--gold-soft)" onclick="irTela('comunicacoes','ocorrencias')">
           <div class="aluno-linha">
             <div class="aluno-av">📌</div>
             <div style="flex:1">
@@ -328,7 +344,7 @@ const Portal = {
           </div>
         </div>` : ''}
       ${!d.aguardando_ciencia && d.nao_lidas > 0 ? `
-        <div class="cartao toque" onclick="irTela('mensagens')">
+        <div class="cartao toque" onclick="irTela('comunicacoes','mensagens')">
           <div class="aluno-linha">
             <div class="aluno-av">✉️</div>
             <div style="flex:1">
@@ -354,7 +370,7 @@ const Portal = {
       ${globais.length ? `
         <div class="titulo-secao">Comunicados gerais</div>
         ${globais.map(m => `
-          <div class="cartao toque" onclick="irTela('mensagens')" style="border-left:3px solid var(--gold)">
+          <div class="cartao toque" onclick="irTela('comunicacoes','mensagens')" style="border-left:3px solid var(--gold)">
             <div class="aluno-linha">
               <div class="aluno-av" style="background:var(--gold-soft)">📢</div>
               <div style="flex:1;min-width:0">
@@ -728,7 +744,7 @@ const Portal = {
     alunoSelecionado = inicioDados?.alunos?.find(a => a.id === id) || null;
     const telAtiva = document.querySelector('.tela.active')?.id?.replace('tela-', '');
     if (telAtiva === 'financeiro') this.renderFinanceiro();
-    else if (telAtiva === 'ocorrencias') this.renderOcorrencias();
+    else if (telAtiva === 'comunicacoes') this.mudarComunicacao(comAtiva);
     else if (telAtiva === 'material') this.renderMaterial();
   },
 
@@ -738,7 +754,7 @@ const Portal = {
     alunoSelecionado = null;
     const telAtiva = document.querySelector('.tela.active')?.id?.replace('tela-', '');
     if (telAtiva === 'financeiro') this.renderFinanceiro();
-    else if (telAtiva === 'ocorrencias') this.renderOcorrencias();
+    else if (telAtiva === 'comunicacoes') this.mudarComunicacao(comAtiva);
     else if (telAtiva === 'material') this.renderMaterial();
     else irTela('inicio');
   },
@@ -822,6 +838,111 @@ const Portal = {
       alvo.innerHTML = this._childHeader()
         + `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
     }
+  },
+
+  // ── Comunicações: alterna o segmento ativo (mensagens/agenda/ocorrências) ──
+  mudarComunicacao(seg) {
+    comAtiva = seg;
+    document.querySelectorAll('#comSegmentado .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.com === seg));
+    document.querySelectorAll('#tela-comunicacoes .com-secao').forEach(s => s.classList.add('oculto'));
+    const alvoId = { mensagens: 'mensagensConteudo', agenda: 'agendaConteudo', ocorrencias: 'ocorrenciasConteudo' }[seg];
+    document.getElementById(alvoId)?.classList.remove('oculto');
+
+    if (seg === 'mensagens') this.renderMensagens();
+    else if (seg === 'agenda') this.renderAgenda();
+    else if (seg === 'ocorrencias') this.renderOcorrencias();
+  },
+
+  // ── Agenda diária (segmento de Comunicações — responsável) ────
+  async renderAgenda(data) {
+    const alvo = document.getElementById('agendaConteudo');
+    alvo.innerHTML = '<div class="vazio"><span class="spinner"></span></div>';
+
+    const alunos = inicioDados?.alunos || [];
+    if (!alunos.length) {
+      alvo.innerHTML = '<div class="vazio"><span class="ico">📔</span><div class="titulo">Nenhum aluno vinculado</div></div>';
+      return;
+    }
+    if (!alunoSelecionado && alunos.length > 1) {
+      alvo.innerHTML = this._pickerFilhos('Escolha o filho para ver a agenda diária.');
+      return;
+    }
+
+    this._agendaData = data || this._agendaData || new Date().toISOString().slice(0, 10);
+    try {
+      this._agenda = await Api.get(`/api/portal/alunos/${alunoSelecionado.id}/agenda`, { data: this._agendaData });
+    } catch (e) {
+      alvo.innerHTML = this._childHeader() + `<div class="vazio"><span class="ico">⚠️</span><div class="titulo">${escapar(e.message)}</div></div>`;
+      return;
+    }
+    this._desenharAgenda();
+  },
+
+  _desenharAgenda() {
+    const alvo = document.getElementById('agendaConteudo');
+    const d = this._agenda;
+    const hojeStr = new Date().toISOString().slice(0, 10);
+
+    const navegador = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button class="btn-ico" onclick="Portal.mudarDiaAgenda(-1)">‹</button>
+        <div style="flex:1;text-align:center;font-weight:700;font-size:13px">
+          ${dataBR(this._agendaData)}${this._agendaData === hojeStr ? ' (hoje)' : ''}
+        </div>
+        <button class="btn-ico" onclick="Portal.mudarDiaAgenda(1)" ${this._agendaData >= hojeStr ? 'disabled' : ''}>›</button>
+      </div>`;
+
+    const rot = (mapa, v) => v == null ? '—' : (mapa[v] || v);
+    const linha = (rotulo, valor) => `<div class="info-linha"><span class="rot">${rotulo}</span><span class="val">${valor}</span></div>`;
+
+    const rotina = `
+      <div class="cartao">
+        ${linha('Entrada', d.entrada ? d.entrada.slice(0, 5) : '—')}
+        ${linha('Saída', d.saida ? d.saida.slice(0, 5) : '—')}
+        ${linha('Sono', rot(AGD_ROTULOS_PT.sono, d.sono))}
+        ${linha('Banho', d.banho === null ? '—' : (d.banho ? 'Sim' : 'Não'))}
+        ${linha('Disposição', rot(AGD_ROTULOS_PT.disposicao, d.disposicao))}
+        ${linha('Evacuação', rot(AGD_ROTULOS_PT.evacuacao, d.evacuacao))}
+        ${linha('Colação', rot(AGD_ROTULOS_PT.refeicao, d.colacao))}
+        ${linha('Almoço', rot(AGD_ROTULOS_PT.refeicao, d.almoco))}
+        ${linha('Lanche', rot(AGD_ROTULOS_PT.refeicao, d.lanche))}
+        ${linha('Jantar', rot(AGD_ROTULOS_PT.refeicao, d.jantar))}
+      </div>`;
+
+    const extra = [];
+    if (d.observacoes) {
+      extra.push(`<div class="titulo-secao">Observações</div><div class="cartao"><div style="font-size:13px;line-height:1.6">${escapar(d.observacoes)}</div></div>`);
+    }
+    if (d.trazer && d.trazer.length) {
+      extra.push(`<div class="titulo-secao">Mamãe trazer</div><div class="cartao">${d.trazer.map(i => escapar(i)).join(', ')}</div>`);
+    }
+    if (d.teve_febre) {
+      extra.push(`<div class="titulo-secao">Febre</div><div class="cartao">
+        ${linha('Temperatura', escapar(d.temperatura || '—'))}
+        ${linha('Horário', d.febre_hora ? d.febre_hora.slice(0, 5) : '—')}
+        ${linha('Antifebril', escapar(d.antifebril || '—'))}
+      </div>`);
+    }
+    if (d.medicamentos && d.medicamentos.length) {
+      extra.push(`<div class="titulo-secao">Remédios administrados</div>` + d.medicamentos.map(m => `
+        <div class="cartao">
+          ${linha('Remédio', escapar(m.nome_remedio))}
+          ${linha('Dosagem', escapar(m.dosagem || '—'))}
+          ${linha('Horário', m.horario ? m.horario.slice(0, 5) : '—')}
+          ${linha('Ministrado por', escapar(m.ministrado_por || '—'))}
+        </div>`).join(''));
+    }
+
+    alvo.innerHTML = this._childHeader() + navegador + `<div class="titulo-secao">Rotina do dia</div>` + rotina + extra.join('');
+  },
+
+  mudarDiaAgenda(delta) {
+    const d = new Date(this._agendaData + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    const novo = d.toISOString().slice(0, 10);
+    const hojeStr = new Date().toISOString().slice(0, 10);
+    if (novo > hojeStr) return;
+    this.renderAgenda(novo);
   },
 
   // ── Ocorrências (tela dedicada — responsável, lista estilo caixa de entrada) ──

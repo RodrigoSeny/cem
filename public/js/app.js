@@ -15,6 +15,8 @@ const PAGINAS_APP = [
   { id: 'mensagens',      rotulo: 'Mensagens',         ico: '✉️', permissao: 'mensagens' },
   { id: 'ped-listas',     rotulo: 'Listas de Material', ico: '🎒', permissao: 'ped-listas' },
   { id: 'ped-checklist',  rotulo: 'Checklist por Aluno', ico: '✅', permissao: 'ped-checklist' },
+  { id: 'agenda-diaria',  rotulo: 'Agenda Diária',        ico: '📔', permissao: 'agenda-diaria' },
+  { id: 'agenda-padrao',  rotulo: 'Configuração da Agenda', ico: '⚙️', permissao: 'agenda-padrao' },
   { id: 'funcionarios',   rotulo: 'Funcionários',      ico: '👔', permissao: 'funcionarios' },
   { id: 'fin-painel',       rotulo: 'Painel Financeiro',    ico: '📊', permissao: 'fin-painel' },
   { id: 'fin-cadastros',    rotulo: 'Cadastros Financeiro', ico: '🗂️', permissao: 'fin-cadastros' },

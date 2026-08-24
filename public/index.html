@@ -83,6 +83,11 @@
         <div class="nav-submenu-item" data-pagina="ped-listas"><span class="ico">📋</span> Listas de Material</div>
         <div class="nav-submenu-item" data-pagina="ped-checklist"><span class="ico">✅</span> Checklist por Aluno</div>
       </div>
+      <div class="nav-item has-submenu" onclick="alternarSubmenu(this)"><span class="ico">📔</span> Agenda Diária</div>
+      <div class="nav-submenu">
+        <div class="nav-submenu-item" data-pagina="agenda-diaria"><span class="ico">📝</span> Preenchimento do Dia</div>
+        <div class="nav-submenu-item" data-pagina="agenda-padrao"><span class="ico">⚙️</span> Configuração Padrão</div>
+      </div>
 
       <div class="nav-section">Administrativo</div>
       <div class="nav-item" data-pagina="funcionarios"><span class="ico">👔</span> Funcionários</div>
@@ -460,6 +465,137 @@
           </table>
         </div>
         <div class="tabela-rodape"><span id="pedResumoTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── AGENDA DIÁRIA · PREENCHIMENTO ─────────── -->
+    <section class="pagina" id="pagina-agenda-diaria">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Agenda Diária — Preenchimento do Dia</h1>
+          <p class="pagina-sub">Só lance o que fugiu do padrão da turma — o resto o responsável vê como "normal"</p>
+        </div>
+      </div>
+
+      <div class="filtros" style="margin-bottom:12px">
+        <div class="campo">
+          <label>Turma</label>
+          <select class="form-select" id="agdTurma" style="min-width:220px" onchange="Agenda.carregarGrade()"></select>
+        </div>
+        <div class="campo">
+          <label>Data</label>
+          <input type="date" class="form-input" id="agdData" onchange="Agenda.carregarGrade()">
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead><tr><th>Aluno</th><th>Matrícula</th><th>Status</th><th class="acoes">Ações</th></tr></thead>
+            <tbody id="agdGradeCorpo"></tbody>
+          </table>
+        </div>
+        <div class="tabela-rodape"><span id="agdGradeTotal">—</span></div>
+      </div>
+    </section>
+
+    <!-- ─────────── AGENDA DIÁRIA · CONFIGURAÇÃO PADRÃO ─────────── -->
+    <section class="pagina" id="pagina-agenda-padrao">
+      <div class="pagina-head">
+        <div>
+          <h1 class="pagina-titulo">Configuração da Agenda Padrão</h1>
+          <p class="pagina-sub">Como é um "dia normal" nesta turma — usado quando ninguém lança exceção</p>
+        </div>
+      </div>
+
+      <div class="filtros" style="margin-bottom:16px">
+        <div class="campo">
+          <label>Turma</label>
+          <select class="form-select" id="agpTurma" style="min-width:220px" onchange="Agenda.carregarPadrao()"></select>
+        </div>
+      </div>
+
+      <div class="card card-p" id="agpForm" style="max-width:720px">
+        <div class="form-grid3">
+          <div class="form-group">
+            <label class="form-label">Sono</label>
+            <select class="form-select" data-campo="sono">
+              <option value="">Sem padrão</option>
+              <option value="manha">Manhã</option>
+              <option value="apos_almoco">Após o almoço</option>
+              <option value="tarde">Tarde</option>
+              <option value="nao_dormiu">Não dormiu</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Banho</label>
+            <select class="form-select" data-campo="banho">
+              <option value="">Sem padrão</option>
+              <option value="1">Toma banho</option>
+              <option value="0">Não toma banho</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Disposição</label>
+            <select class="form-select" data-campo="disposicao">
+              <option value="">Sem padrão</option>
+              <option value="normal">Normal</option>
+              <option value="agitado">Agitado</option>
+              <option value="quieto">Quieto</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Evacuação</label>
+            <select class="form-select" data-campo="evacuacao">
+              <option value="">Sem padrão</option>
+              <option value="normal">Normal</option>
+              <option value="pastosa">Pastosa</option>
+              <option value="liquida">Líquida</option>
+              <option value="nao_evacuou">Não evacuou</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Colação</label>
+            <select class="form-select" data-campo="colacao">
+              <option value="">Sem padrão</option>
+              <option value="bem">Bem</option>
+              <option value="metade">Metade</option>
+              <option value="menos_metade">Menos da metade</option>
+              <option value="recusou">Recusou</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Almoço</label>
+            <select class="form-select" data-campo="almoco">
+              <option value="">Sem padrão</option>
+              <option value="bem">Bem</option>
+              <option value="metade">Metade</option>
+              <option value="menos_metade">Menos da metade</option>
+              <option value="recusou">Recusou</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lanche</label>
+            <select class="form-select" data-campo="lanche">
+              <option value="">Sem padrão</option>
+              <option value="bem">Bem</option>
+              <option value="metade">Metade</option>
+              <option value="menos_metade">Menos da metade</option>
+              <option value="recusou">Recusou</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jantar</label>
+            <select class="form-select" data-campo="jantar">
+              <option value="">Sem padrão</option>
+              <option value="bem">Bem</option>
+              <option value="metade">Metade</option>
+              <option value="menos_metade">Menos da metade</option>
+              <option value="recusou">Recusou</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="Agenda.salvarPadrao()" style="margin-top:8px">💾 Salvar padrão da turma</button>
       </div>
     </section>
 
@@ -1879,6 +2015,21 @@
   </div>
 </div>
 
+<!-- Agenda diária de um aluno -->
+<div class="modal-overlay" id="modalAgendaDiaria">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div><h3 id="modalAgendaTitulo">Agenda do dia</h3><div class="sub" id="modalAgendaSub"></div></div>
+      <button class="btn-ico" onclick="fecharModal('modalAgendaDiaria')">✕</button>
+    </div>
+    <div class="modal-body" id="agendaDiariaCorpo"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="fecharModal('modalAgendaDiaria')">Cancelar</button>
+      <button class="btn btn-primary" onclick="Agenda.salvarAluno()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Cobrança avulsa -->
 <div class="modal-overlay" id="modalCobranca">
   <div class="modal">
@@ -2154,6 +2305,7 @@
 <script src="/js/ocorrencias.js"></script>
 <script src="/js/mensagens.js"></script>
 <script src="/js/pedagogico.js"></script>
+<script src="/js/agenda.js"></script>
 <!-- Modal — Conta Bancária -->
 <div class="modal-overlay" id="modalContaBancaria">
   <div class="modal">

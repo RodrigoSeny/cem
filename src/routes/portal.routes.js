@@ -11,6 +11,7 @@ const { db, log, agora } = require('../db');
 const { rota, idade } = require('../util');
 const { temPagina } = require('../auth');
 const { itensAplicaveis } = require('./material.routes');
+const { agendaEfetiva } = require('./agenda.routes');
 const Push = require('../push');
 
 const router = express.Router();
@@ -428,6 +429,19 @@ router.get('/alunos/:id/material', rota((req, res) => {
     total: itens.length,
     faltando: itens.filter(i => !i.enviado).length,
   });
+}));
+
+// ══════════════════════ AGENDA DIÁRIA ═══════════════════════════
+
+// ── GET /api/portal/alunos/:id/agenda?data= ───────────────────
+router.get('/alunos/:id/agenda', rota((req, res) => {
+  const id = Number(req.params.id);
+  if (!podeVerAluno(req.usuario, id)) return res.status(403).json({ error: 'Você não tem acesso a este aluno.' });
+
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(req.query.data || '') ? req.query.data : new Date().toISOString().slice(0, 10);
+  const efetivo = agendaEfetiva(id, data);
+  if (!efetivo) return res.status(404).json({ error: 'Aluno não encontrado.' });
+  res.json(efetivo);
 }));
 
 // ══════════════════════ FINANCEIRO ════════════════════════════
