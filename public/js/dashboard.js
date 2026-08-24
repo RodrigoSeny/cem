@@ -71,7 +71,7 @@ const Dashboard = {
         </div>` : ''}
       </div>` : ''}
 
-      <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:start" class="painel-colunas">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start" class="painel-colunas">
         <div class="card">
           <div class="card-head">Ocupação das turmas</div>
           <div class="card-p">${this.ocupacao(d.ocupacaoTurmas)}</div>
