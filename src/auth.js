@@ -10,8 +10,18 @@
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'cem_jwt_secret_dev_mude_em_producao';
-if (JWT_SECRET === 'cem_jwt_secret_dev_mude_em_producao') {
+const JWT_SECRET_PADRAO = 'cem_jwt_secret_dev_mude_em_producao';
+const JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET_PADRAO;
+if (JWT_SECRET === JWT_SECRET_PADRAO) {
+  // Esse valor está no código-fonte — em produção ele vira uma chave mestra
+  // pública que assina token válido pra qualquer conta, inclusive Master.
+  // Em produção o servidor nem sobe sem um JWT_SECRET próprio no .env.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'JWT_SECRET não definido (ou usando o valor padrão do código) com NODE_ENV=production. ' +
+      'Defina uma chave própria e longa em JWT_SECRET no .env da VPS antes de subir o servidor.'
+    );
+  }
   console.warn('⚠️  JWT_SECRET usando valor padrão. Defina JWT_SECRET no .env antes de publicar.');
 }
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '12h';

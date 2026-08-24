@@ -5,7 +5,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db, log, agora } = require('../db');
 const { rota } = require('../util');
-const { PAGINAS, isMaster, PERFIL_MASTER, PAGINAS_MASTER } = require('../auth');
+const { PAGINAS, isMaster, isAdmin, PERFIL_MASTER, PAGINAS_MASTER } = require('../auth');
 
 const usuarios = express.Router();
 const perfis = express.Router();
@@ -19,6 +19,14 @@ const validadeProvisoria = () => agora(VALIDADE_PROVISORIA_DIAS * 86400000);
 /** Só o Master enxerga e manipula o perfil Master e quem o usa. */
 const soMaster = (req, res) =>
   res.status(403).json({ error: 'O perfil Master é gerenciado apenas por um usuário Master.' });
+
+/** O perfil_id informado dá acesso administrativo (Master ou Direção)? */
+const perfilEhAdmin = perfilId => isAdmin({ tipo: 'funcionario', perfil_id: perfilId });
+
+/** Só quem já é administrativo (Master/Direção) mexe em conta administrativa
+ *  ou concede perfil administrativo a alguém — senão dá pra se autopromover. */
+const soAdmin = (req, res) =>
+  res.status(403).json({ error: 'Somente um perfil administrativo pode conceder ou alterar um perfil administrativo.' });
 
 // ══════════════════════ USUÁRIOS ══════════════════════════════
 
@@ -84,6 +92,12 @@ usuarios.put('/:id', rota((req, res) => {
   if (u.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
   if (req.body.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
 
+  // Mexer numa conta administrativa (Direção), ou conceder um perfil
+  // administrativo a alguém, é coisa de quem já é administrativo — senão
+  // dá pra qualquer um com a página "Usuários" se autopromover a Direção.
+  if (perfilEhAdmin(u.perfil_id) && !isAdmin(req.usuario)) return soAdmin(req, res);
+  if (req.body.perfil_id && perfilEhAdmin(req.body.perfil_id) && !isAdmin(req.usuario)) return soAdmin(req, res);
+
   // Não deixar o sistema ficar sem nenhum Master ativo
   if (u.perfil_id === PERFIL_MASTER) {
     const virandoOutroPerfil = req.body.perfil_id && req.body.perfil_id !== PERFIL_MASTER;
@@ -126,6 +140,9 @@ usuarios.post('/:id/senha', rota((req, res) => {
 
   // Redefinir a senha de um Master daria acesso total a quem não é Master
   if (alvo.perfil_id === PERFIL_MASTER && !isMaster(req.usuario)) return soMaster(req, res);
+  // Idem pra qualquer conta administrativa (Direção) redefinida por quem
+  // não é administrativo — senão dá pra sequestrar a conta de um colega.
+  if (perfilEhAdmin(alvo.perfil_id) && !isAdmin(req.usuario)) return soAdmin(req, res);
   const senhaValidaAte = validadeProvisoria();
   db.prepare('UPDATE usuarios SET senha_hash = ?, precisa_trocar_senha = 1, senha_valida_ate = ?, tentativas = 0, bloqueado_ate = NULL, atualizado_em = ? WHERE id = ?')
     .run(bcrypt.hashSync(senha, 10), senhaValidaAte, agora(), id);
@@ -148,6 +165,9 @@ usuarios.delete('/:id', rota((req, res) => {
     if (!ativos) {
       return res.status(409).json({ error: 'Este é o último Master ativo — o sistema ficaria sem administrador.' });
     }
+  } else if (perfilEhAdmin(u.perfil_id) && !isAdmin(req.usuario)) {
+    // Conta administrativa (Direção) só é excluída por quem também é administrativo.
+    return soAdmin(req, res);
   }
 
   db.prepare('DELETE FROM usuarios WHERE id = ?').run(id);

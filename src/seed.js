@@ -244,10 +244,19 @@ function seed() {
 
   // ── Usuário master ──────────────────────────────────────────
   const login = process.env.MASTER_LOGIN || 'master';
-  const senha = process.env.MASTER_SENHA || 'cem@2026';
+  const SENHA_PADRAO = 'cem@2026';
+  const senha = process.env.MASTER_SENHA || SENHA_PADRAO;
 
   const existe = db.prepare('SELECT id FROM usuarios WHERE perfil_id = ?').get('PERFIL-MASTER');
   if (!existe) {
+    // Essa senha padrão está no código-fonte — criar a primeira conta master
+    // com ela em produção equivale a publicar a senha do sistema.
+    if (senha === SENHA_PADRAO && process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'MASTER_SENHA não definida (ou usando o valor padrão do código) com NODE_ENV=production. ' +
+        'Defina uma senha própria em MASTER_SENHA no .env da VPS antes de subir o servidor.'
+      );
+    }
     db.prepare(`
       INSERT INTO usuarios (nome, login, senha_hash, tipo, perfil_id, ativo, precisa_trocar_senha, criado_em)
       VALUES (?, ?, ?, 'funcionario', 'PERFIL-MASTER', 1, 1, ?)`)
@@ -255,6 +264,21 @@ function seed() {
 
     console.log(`✅ Usuário master criado — login: ${login} | senha: ${senha}`);
     console.log('   Troque a senha no primeiro acesso.');
+  }
+
+  // Alerta em TODA subida (não só na criação): pega o caso de uma conta
+  // Master que já existia com a senha padrão antes desta checagem existir.
+  const masters = db.prepare(
+    `SELECT id, login, senha_hash FROM usuarios WHERE perfil_id = 'PERFIL-MASTER' AND ativo = 1`
+  ).all();
+  for (const m of masters) {
+    if (bcrypt.compareSync(SENHA_PADRAO, m.senha_hash)) {
+      console.error('');
+      console.error('  🚨🚨🚨  ALERTA DE SEGURANÇA  🚨🚨🚨');
+      console.error(`  A conta Master "${m.login}" está usando a senha padrão do código-fonte.`);
+      console.error('  Troque agora: entre no sistema e use "Trocar senha" no menu lateral.');
+      console.error('');
+    }
   }
 
   return { perfis: PERFIS.length };

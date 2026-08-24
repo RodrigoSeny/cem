@@ -167,13 +167,23 @@ router.get('/contratos', rota((req, res) => {
 
 /** Gera as parcelas do contrato. Nunca mexe em parcela já paga. */
 function gerarParcelas(contrato) {
-  const existentes = db.prepare(
-    `SELECT competencia, parcela, status FROM mensalidades WHERE contrato_id = ?`
+  // Preserva não só as já quitadas, mas qualquer parcela com pagamento (mesmo
+  // parcial) associado — apagar essas linhas cascateia e destrói o histórico
+  // do pagamento real, mesmo a parcela ainda estando tecnicamente "aberta".
+  const existentes = db.prepare(`
+    SELECT m.competencia, m.parcela, m.status,
+           EXISTS(SELECT 1 FROM pagamentos p WHERE p.mensalidade_id = m.id) AS tem_pagamento
+      FROM mensalidades m WHERE m.contrato_id = ?`
   ).all(contrato.id);
-  const pagas = new Set(existentes.filter(m => m.status === 'paga').map(m => `${m.competencia}|${m.parcela}`));
+  const preservadas = new Set(
+    existentes.filter(m => m.status === 'paga' || m.tem_pagamento).map(m => `${m.competencia}|${m.parcela}`)
+  );
 
-  // Remove as em aberto para recriar com os valores atuais
-  db.prepare(`DELETE FROM mensalidades WHERE contrato_id = ? AND status <> 'paga'`).run(contrato.id);
+  // Remove as em aberto (sem nenhum pagamento) para recriar com os valores atuais
+  db.prepare(`
+    DELETE FROM mensalidades WHERE contrato_id = ? AND status <> 'paga'
+      AND id NOT IN (SELECT DISTINCT mensalidade_id FROM pagamentos WHERE mensalidade_id IS NOT NULL)`
+  ).run(contrato.id);
 
   // Desconto, bolsa e desconto de irmão são camadas em cascata, aplicadas em
   // sequência sobre o valor já reduzido pela camada anterior — nunca somadas
@@ -211,7 +221,7 @@ function gerarParcelas(contrato) {
     const mes = (mes0 % 12) + 1;
     const competencia = `${ano}-${String(mes).padStart(2, '0')}`;
     const parcela = i + 1;
-    if (pagas.has(`${competencia}|${parcela}`)) continue;
+    if (preservadas.has(`${competencia}|${parcela}`)) continue;
 
     // Dia 31 em mês de 30 cai no último dia do mês
     const ultimoDia = new Date(ano, mes, 0).getDate();
@@ -665,7 +675,21 @@ router.put('/mensalidades/:id', rota((req, res) => {
 
   const d = filtrarCampos(req.body, ['descricao', 'valor_original', 'valor_desconto', 'valor_acrescimo', 'vencimento', 'status', 'observacoes']);
   if (!Object.keys(d).length) return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
-  for (const n of ['valor_original', 'valor_desconto', 'valor_acrescimo']) if (n in d) d[n] = Number(d[n]) || 0;
+
+  // "paga" só pode ser resultado de um pagamento de verdade (rota /pagar) —
+  // senão dá pra "quitar" uma parcela sem nenhum dinheiro entrar, sem deixar rastro.
+  if (d.status === 'paga') {
+    return res.status(400).json({ error: 'Para quitar a parcela, registre o pagamento em vez de alterar o status diretamente.' });
+  }
+
+  for (const n of ['valor_original', 'valor_desconto', 'valor_acrescimo']) {
+    if (n in d) d[n] = Math.max(Number(d[n]) || 0, 0);
+  }
+  const original = 'valor_original' in d ? d.valor_original : m.valor_original;
+  const desconto = 'valor_desconto' in d ? d.valor_desconto : m.valor_desconto;
+  if (desconto > original) {
+    return res.status(400).json({ error: 'O desconto não pode ser maior que o valor original da parcela.' });
+  }
 
   const { sql, valores } = montarUpdate('mensalidades', d, id);
   db.prepare(sql).run(...valores);
